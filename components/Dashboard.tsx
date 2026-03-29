@@ -20,6 +20,9 @@ interface ScanResult {
   reason: string;
   isAfterHours?: boolean;
   detectedAt?: string;
+  assetType?: 'STOCK' | 'OPTION';
+  strategyName?: string;
+  strikeLabel?: string;
 }
 
 interface OptionsRow {
@@ -46,6 +49,9 @@ interface PastTrade {
   strength: number;
   time: string;
   timestamp: number;
+  assetType?: 'STOCK' | 'OPTION';
+  strategyName?: string;
+  strikeLabel?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -127,7 +133,7 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
         animation: isNew ? `${isBuy ? 'flash-buy' : 'flash-sell'} 0.9s ease-out` : 'none',
       }}
     >
-      {/* Glow on strong signals */}
+      {/* glow */}
       {(isBuy || isSell) && (
         <div style={{
           position: 'absolute', top: -40, right: -40, width: 120, height: 120,
@@ -136,12 +142,28 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
         }} />
       )}
 
-      {/* Header: Ticker + signal badge + timestamp */}
+      {/* Header: Ticker + Asset Badge + signal badge */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', lineHeight: 1 }}>{r.ticker}</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#f0f4ff', marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', lineHeight: 1 }}>{r.ticker}</div>
+            {r.assetType && (
+              <span style={{ 
+                fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, 
+                background: r.assetType === 'OPTION' ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.08)', 
+                color: r.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8', border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                {r.assetType}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#f0f4ff', marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             ${r.price.toFixed(2)}
+            {r.strikeLabel && (
+              <span style={{ fontSize: 13, background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: 100, color: '#cbd5e1' }}>
+                ↳ {r.strikeLabel}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: changeColor, marginTop: 2 }}>
             {fmt.pct(r.change)}
@@ -193,10 +215,11 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
       {r.reason && (
         <div style={{
           marginTop: 12, fontSize: 11, color: '#94a3b8', lineHeight: 1.5,
-          padding: '7px 11px', borderRadius: 8,
+          padding: '9px 12px', borderRadius: 8,
           background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
         }}>
-          💡 {r.reason}
+          {r.strategyName && <div style={{ fontWeight: 700, color: '#e2e8f0', marginBottom: 3 }}>⚙️ {r.strategyName}</div>}
+          <div style={{ color: '#cbd5e1' }}>{r.reason}</div>
         </div>
       )}
 
@@ -238,6 +261,9 @@ function PastRow({ t, i }: { t: PastTrade; i: number }) {
       <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontWeight: 700, fontSize: 14, color: '#f0f4ff' }}>{t.ticker}</span>
+        {t.assetType && (
+          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: t.assetType === 'OPTION' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.1)', color: t.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8' }}>{t.assetType}</span>
+        )}
         <SignalBadge signal={t.signal} />
       </div>
       <div>
@@ -398,6 +424,9 @@ export default function Dashboard() {
             strength: item.signalStrength,
             time: nowTimeStr,
             timestamp: Date.now(),
+            assetType: item.assetType,
+            strategyName: item.strategyName,
+            strikeLabel: item.strikeLabel,
           });
         }
         prevSig.current.set(item.ticker, item.signal);
