@@ -1,0 +1,225 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  /* Backgrounds */
+  --bg-base:      #070a12;
+  --bg-surface:   #0d1117;
+  --bg-card:      #111827;
+  --bg-card2:     #161f2e;
+  --bg-elevated:  #1c2435;
+
+  /* Borders */
+  --border:       rgba(255,255,255,0.07);
+  --border-soft:  rgba(255,255,255,0.04);
+
+  /* Text */
+  --text-primary:   #f0f4ff;
+  --text-secondary: #8b9ab5;
+  --text-muted:     #4e5d73;
+
+  /* Signals */
+  --buy:        #22c55e;
+  --buy-soft:   rgba(34,197,94,0.10);
+  --buy-glow:   rgba(34,197,94,0.25);
+  --sell:       #f43f5e;
+  --sell-soft:  rgba(244,63,94,0.10);
+  --sell-glow:  rgba(244,63,94,0.25);
+  --watch:      #f59e0b;
+  --watch-soft: rgba(245,158,11,0.10);
+
+  /* Accents */
+  --accent:      #6366f1;
+  --accent-soft: rgba(99,102,241,0.12);
+  --accent-grad: linear-gradient(135deg,#6366f1,#8b5cf6,#a78bfa);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers keep tabular spacing */
+.num { font-variant-numeric: tabular-nums; }
+
+/* ─── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(99,102,241,0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.45); }
+
+/* ─── Cards ─────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+}
+.card:hover {
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.card-sm {
+  background: var(--bg-card2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+}
+
+/* ─── Signal Pills ───────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.pill-buy  { background: var(--buy-soft);  color: var(--buy);  border: 1px solid var(--buy-glow);  box-shadow: 0 0 14px var(--buy-glow); }
+.pill-sell { background: var(--sell-soft); color: var(--sell); border: 1px solid var(--sell-glow); box-shadow: 0 0 14px var(--sell-glow); }
+.pill-watch { background: var(--watch-soft); color: var(--watch); border: 1px solid rgba(245,158,11,0.3); }
+.pill-neutral { background: rgba(75,85,99,0.15); color: var(--text-muted); border: 1px solid rgba(75,85,99,0.25); }
+.pill-call { background: var(--buy-soft); color: var(--buy); border: 1px solid rgba(34,197,94,0.2); font-size: 11px; }
+.pill-put  { background: var(--sell-soft); color: var(--sell); border: 1px solid rgba(244,63,94,0.2); font-size: 11px; }
+
+/* ─── Pulse dot ──────────────────────────────── */
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.5; transform:scale(1.3); }
+}
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--buy);
+  animation: pulse-dot 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ─── Flash rows ─────────────────────────────── */
+@keyframes flash-buy  { 0%{background:rgba(34,197,94,.18)} 100%{background:transparent} }
+@keyframes flash-sell { 0%{background:rgba(244,63,94,.18)} 100%{background:transparent} }
+.flash-buy  { animation: flash-buy  0.9s ease-out; }
+.flash-sell { animation: flash-sell 0.9s ease-out; }
+
+/* ─── Gradient text ──────────────────────────── */
+.gradient-text {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Shimmer loading ────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(99,102,241,0.06) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ─── Stat chip ──────────────────────────────── */
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 18px;
+  gap: 2px;
+  min-width: 80px;
+}
+
+/* ─── Tab button ─────────────────────────────── */
+.tab-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  background: transparent;
+}
+.tab-btn.active {
+  background: var(--accent-soft);
+  color: #a5b4fc;
+  box-shadow: 0 0 20px rgba(99,102,241,0.15);
+}
+.tab-btn:hover:not(.active) { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+
+/* ─── Signal card (large) ────────────────────── */
+.signal-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  transition: all 0.2s;
+  cursor: default;
+}
+.signal-card.buy-card  {
+  background: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, var(--bg-card) 60%);
+  border-color: rgba(34,197,94,0.2);
+}
+.signal-card.sell-card {
+  background: linear-gradient(135deg, rgba(244,63,94,0.06) 0%, var(--bg-card) 60%);
+  border-color: rgba(244,63,94,0.2);
+}
+.signal-card.watch-card {
+  background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, var(--bg-card) 60%);
+  border-color: rgba(245,158,11,0.15);
+}
+.signal-card.none-card {
+  background: var(--bg-card);
+}
+.signal-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+
+/* ─── RVOL bar ───────────────────────────────── */
+.rvol-track { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.rvol-fill  { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+
+/* ─── Past trade row ─────────────────────────── */
+.past-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  transition: background 0.15s;
+}
+.past-row:hover { background: rgba(255,255,255,0.02); }
+
+/* ─── Options flow card ──────────────────────── */
+.flow-card {
+  flex-shrink: 0;
+  width: 190px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  background: var(--bg-card);
+  transition: all 0.18s;
+}
+.flow-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-2px); }
