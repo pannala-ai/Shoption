@@ -48,10 +48,15 @@ interface PastTrade {
   reason: string;
   strength: number;
   time: string;
+  date: string;
   timestamp: number;
   assetType?: 'STOCK' | 'OPTION';
   strategyName?: string;
   strikeLabel?: string;
+}
+
+interface PinnedTrade extends PastTrade {
+  pinnedAt: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -171,7 +176,33 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <SignalBadge signal={r.signal} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!r.isAfterHours && r.signal !== 'WATCH' && r.signal !== 'NONE' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const saved = localStorage.getItem('shoption_pinned');
+                  const arr: PinnedTrade[] = saved ? JSON.parse(saved) : [];
+                  if (!arr.find(x => x.ticker === r.ticker && x.signal === r.signal)) {
+                    arr.unshift({
+                      id: `${r.ticker}-${Date.now()}`, ticker: r.ticker, signal: r.signal as 'BUY'|'SELL',
+                      price: r.price, reason: r.reason, strength: r.signalStrength,
+                      time: r.detectedAt?.split(' ')[1] + ' ' + r.detectedAt?.split(' ')[2],
+                      date: r.detectedAt?.split(',')[0] || '', timestamp: Date.now(),
+                      assetType: r.assetType, strategyName: r.strategyName, strikeLabel: r.strikeLabel,
+                      pinnedAt: Date.now()
+                    });
+                    localStorage.setItem('shoption_pinned', JSON.stringify(arr));
+                    window.dispatchEvent(new Event('storage')); // trigger update
+                  }
+                }}
+                style={{ padding: '4px 8px', fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+              >
+                📌 PIN
+              </button>
+            )}
+            <SignalBadge signal={r.signal} />
+          </div>
           {r.detectedAt && (
             <span style={{ fontSize: 10, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
               🕐 {r.detectedAt}
@@ -272,7 +303,24 @@ function PastRow({ t, i }: { t: PastTrade; i: number }) {
       </div>
       <div style={{ textAlign: 'right' }}>
         <div style={{ fontSize: 12, fontWeight: 700, color }}>Strength: {t.strength}%</div>
-        <div style={{ fontSize: 11, color: '#4e5d73', marginTop: 2 }}>{t.time}</div>
+        <div style={{ fontSize: 11, color: '#4e5d73', marginTop: 2 }}>{t.date} · {t.time}</div>
+      </div>
+      <div style={{ paddingLeft: 10 }}>
+        <button
+          onClick={() => {
+            const saved = localStorage.getItem('shoption_pinned');
+            const arr: PinnedTrade[] = saved ? JSON.parse(saved) : [];
+            if (!arr.find(x => x.id === t.id)) {
+              arr.unshift({ ...t, pinnedAt: Date.now() });
+              localStorage.setItem('shoption_pinned', JSON.stringify(arr));
+              window.dispatchEvent(new Event('storage'));
+            }
+          }}
+          style={{ padding: '6px', fontSize: 12, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', transition: 'background 0.2s' }}
+          title="Pin Trade"
+        >
+          📌
+        </button>
       </div>
     </motion.div>
   );
@@ -357,11 +405,12 @@ function OptionsCard({ f, i }: { f: OptionsRow; i: number }) {
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'past'|'options'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'past'|'options'|'pinned'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [options,   setOptions]   = useState<OptionsRow[]>([]);
   const [past,      setPast]      = useState<PastTrade[]>([]);
+  const [pinned,    setPinned]    = useState<PinnedTrade[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [optLoading, setOptLoad]  = useState(true);
   const [scanning,  setScanning]  = useState(false);
@@ -384,13 +433,21 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  // Load past trades
-  useEffect(() => {
+  // Load past trades & pinned
+  const loadLocals = useCallback(() => {
     try {
-      const s = localStorage.getItem('shoption_past');
-      if (s) setPast(JSON.parse(s));
+      const sp = localStorage.getItem('shoption_past');
+      if (sp) setPast(JSON.parse(sp));
+      const sn = localStorage.getItem('shoption_pinned');
+      if (sn) setPinned(JSON.parse(sn));
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    loadLocals();
+    window.addEventListener('storage', loadLocals);
+    return () => window.removeEventListener('storage', loadLocals);
+  }, [loadLocals]);
 
   // Scanner fetch
   const fetchScan = useCallback(async () => {
@@ -410,7 +467,10 @@ export default function Dashboard() {
       // Detect new signals
       const newSet = new Set<string>();
       const newTrades: PastTrade[] = [];
-      const nowTimeStr = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+      const etDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: '2-digit' });
+      const etTime = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+      const nowTimeStr = `${etDate}, ${etTime}`;
+
       for (const item of data) {
         item.detectedAt = nowTimeStr;
         const prev = prevSig.current.get(item.ticker);
@@ -422,7 +482,8 @@ export default function Dashboard() {
             ticker: item.ticker, signal: item.signal,
             price: item.price, reason: item.reason,
             strength: item.signalStrength,
-            time: nowTimeStr,
+            time: etTime,
+            date: etDate,
             timestamp: Date.now(),
             assetType: item.assetType,
             strategyName: item.strategyName,
@@ -524,6 +585,7 @@ export default function Dashboard() {
           { id: 'scanner', icon: '📡', label: 'Live Scanner',  badge: stats.buys + stats.sells },
           { id: 'past',    icon: '📋', label: 'Past Signals',  badge: past.length },
           { id: 'options', icon: '⚡', label: 'Options Flow',  badge: options.filter(o => o.isUnusual).length },
+          { id: 'pinned',  icon: '📌', label: 'Pinned Trades', badge: pinned.length },
         ] as { id: typeof tab; icon: string; label: string; badge: number }[]).map(({ id, icon, label, badge }) => {
           const active = tab === id;
           return (
@@ -638,12 +700,12 @@ export default function Dashboard() {
                 <>
                   <div style={{ margin: '0 24px', background: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
                     <div style={{
-                      display: 'grid', gridTemplateColumns: '8px 120px 1fr 130px',
+                      display: 'grid', gridTemplateColumns: '8px 120px 1fr 130px 40px',
                       gap: 16, padding: '10px 24px',
                       background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)',
                       fontSize: 11, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.06em',
                     }}>
-                      <span /><span>Stock</span><span>Signal Reason</span><span style={{ textAlign: 'right' }}>Time & Strength</span>
+                      <span /><span>Stock</span><span>Signal Reason</span><span style={{ textAlign: 'right' }}>Time & Strength</span><span>Action</span>
                     </div>
                     <AnimatePresence>
                       {past.map((t, i) => <PastRow key={t.id} t={t} i={i} />)}
@@ -710,6 +772,121 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </>
+              )}
+            </motion.div>
+          )}
+
+          {/* PINNED TRADES TAB */}
+          {tab === 'pinned' && (
+            <motion.div key="pinned" style={{ height: '100%', overflowY: 'auto', padding: '24px' }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{
+                padding: '16px 20px', borderRadius: 14, marginBottom: 24,
+                background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+              }}>
+                <span style={{ fontSize: 24 }}>📌</span>
+                <div>
+                  <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 6, fontSize: 16 }}>Your Active Day Trades</p>
+                  <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>
+                    Track your live entry setups here. The engine provides dynamic exit warnings based on market closing hours so you safely exit Options positions without holding risk overnight.
+                  </p>
+                </div>
+              </div>
+
+              {pinned.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50%', gap: 10 }}>
+                  <span style={{ fontSize: 44 }}>📌</span>
+                  <p style={{ color: '#f0f4ff', fontWeight: 600, fontSize: 15 }}>No pinned trades yet</p>
+                  <p style={{ color: '#475569', fontSize: 13 }}>Click [PIN] on any scanning signal or past signal to track it here.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 20 }}>
+                  <AnimatePresence>
+                    {pinned.map((p) => {
+                      const isCall = p.signal === 'BUY';
+                      const color = isCall ? '#22c55e' : '#f43f5e';
+                      
+                      // Dynamic Exit Logic
+                      const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                      const mins = et.getHours() * 60 + et.getMinutes();
+                      const isClosingSoon = mins >= 940 && mins < 960; // 3:40 PM - 4:00 PM
+                      const isClosed = mins >= 960;
+
+                      return (
+                        <motion.div key={p.id}
+                          layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                          style={{
+                            background: '#111827', border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column'
+                          }}>
+                          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                <span style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff' }}>{p.ticker}</span>
+                                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: p.assetType === 'OPTION' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.1)', color: p.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8' }}>{p.assetType || 'STOCK'}</span>
+                                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: `${color}22`, color, border: `1px solid ${color}44` }}>{p.signal}</span>
+                              </div>
+                              <div style={{ fontSize: 13, color: '#94a3b8' }}>
+                                Entry Marker: <strong style={{ color: '#e2e8f0' }}>${p.price.toFixed(2)}</strong> {p.strikeLabel && `→ ${p.strikeLabel}`}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 11, color: '#64748b' }}>Pinned on</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1' }}>{p.date}</div>
+                              <div style={{ fontSize: 12, color: '#94a3b8' }}>{p.time}</div>
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '16px 20px', flex: 1 }}>
+                            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Strategy Tracked</div>
+                            <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)' }}>
+                              <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>⚙️ {p.strategyName || 'Momentum Push'}</div>
+                              {p.reason}
+                            </div>
+                            
+                            <div style={{ marginTop: 16 }}>
+                              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Dynamic Exit Plan</div>
+                              <div style={{
+                                padding: '12px', borderRadius: 8,
+                                background: isClosed ? 'rgba(244,63,94,0.1)' : isClosingSoon ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.08)',
+                                border: `1px solid ${isClosed ? 'rgba(244,63,94,0.3)' : isClosingSoon ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                              }}>
+                                {isClosed ? (
+                                  <div style={{ display: 'flex', gap: 8, color: '#f43f5e', fontSize: 13, fontWeight: 600 }}>
+                                    <span>⚠️</span> <span>Market Closed. You must be completely out or you hold overnight risk against decay.</span>
+                                  </div>
+                                ) : isClosingSoon ? (
+                                  <div style={{ display: 'flex', gap: 8, color: '#f59e0b', fontSize: 13, fontWeight: 600 }}>
+                                    <span>⏳</span> <span>Closing bell approaches (3:55 PM). Liquidate position immediately to avoid overnight gap risk.</span>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', gap: 8, color: '#4ade80', fontSize: 13, fontWeight: 600 }}>
+                                    <span>✅</span> <span>Safe to ride momentum. Close out if thesis invalidates or secure 20% partial profits. Final Exit strictly by 3:55 PM today.</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <button
+                              onClick={() => {
+                                const arr = pinned.filter(x => x.id !== p.id);
+                                setPinned(arr);
+                                localStorage.setItem('shoption_pinned', JSON.stringify(arr));
+                                window.dispatchEvent(new Event('storage'));
+                              }}
+                              style={{ width: '100%', padding: '10px', borderRadius: 8, background: 'rgba(244,63,94,0.1)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.2)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                              <span>🗑️</span> <span style={{ marginTop: 2 }}>Close Trade & Discard File</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
               )}
             </motion.div>
           )}
