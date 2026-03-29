@@ -1,5 +1,5 @@
 // lib/engine.ts
-// Orevix Core Math Engine — VWAP, RVOL, UOA, GEX, Black-Scholes Greeks
+// Shoption Core Math Engine — VWAP, RVOL, UOA, GEX, Black-Scholes Greeks
 
 export interface Candle {
   time: number;

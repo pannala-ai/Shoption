@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Orevix — AI Stock & Options Scanner',
+  title: 'Shoption — AI Stock & Options Scanner',
   description: 'AI-powered real-time stock and options scanner. Get instant BUY/SELL signals powered by RVOL, VWAP, and unusual options activity.',
   keywords: ['stock scanner', 'options scanner', 'AI trading', 'buy sell signals', 'unusual options activity'],
   icons: { icon: '/favicon.ico' },

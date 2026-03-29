@@ -1,5 +1,5 @@
 // lib/polygon.ts
-// Polygon.io REST API client for Orevix
+// Polygon.io REST API client for Shoption
 
 const BASE = 'https://api.polygon.io';
 const KEY = process.env.POLYGON_API_KEY!;

@@ -361,7 +361,7 @@ export default function Dashboard() {
   // Load past trades
   useEffect(() => {
     try {
-      const s = localStorage.getItem('orevix_past');
+      const s = localStorage.getItem('shoption_past');
       if (s) setPast(JSON.parse(s));
     } catch { /* ignore */ }
   }, []);
@@ -406,7 +406,7 @@ export default function Dashboard() {
       if (newTrades.length > 0) {
         setPast(prev => {
           const m = [...newTrades, ...prev].slice(0, 100);
-          try { localStorage.setItem('orevix_past', JSON.stringify(m)); } catch { /* ignore */ }
+          try { localStorage.setItem('shoption_past', JSON.stringify(m)); } catch { /* ignore */ }
           return m;
         });
       }
@@ -450,9 +450,9 @@ export default function Dashboard() {
           <div style={{
             width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 15,
-          }}>O</div>
+          }}>S</div>
           <div>
-            <span style={{ fontSize: 16, fontWeight: 800, color: '#f0f4ff' }}>Orevix</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: '#f0f4ff' }}>Shoption</span>
             <span style={{ fontSize: 11, color: '#475569', marginLeft: 6 }}>AI Scanner</span>
           </div>
         </div>
@@ -593,7 +593,7 @@ export default function Dashboard() {
                   <div>
                     <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 4, fontSize: 14 }}>Signals You Might Have Missed</p>
                     <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-                      Every BUY or SELL signal detected by Orevix is automatically logged here. Use this to review opportunities and learn the patterns.
+                      Every BUY or SELL signal detected by Shoption is automatically logged here. Use this to review opportunities and learn the patterns.
                     </p>
                   </div>
                 </div>
@@ -621,7 +621,7 @@ export default function Dashboard() {
                     </AnimatePresence>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 24 }}>
-                    <button onClick={() => { setPast([]); try { localStorage.removeItem('orevix_past'); } catch { /**/ } }}
+                    <button onClick={() => { setPast([]); try { localStorage.removeItem('shoption_past'); } catch { /**/ } }}
                       style={{ padding: '7px 20px', borderRadius: 100, background: 'rgba(244,63,94,0.08)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                       Clear History
                     </button>
