@@ -171,8 +171,8 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
             )}
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: changeColor, marginTop: 2 }}>
-            {fmt.pct(r.change)}
-            <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 6 }}>{fmt.usd(r.changeDollar)}</span>
+            <span style={{ fontSize: 13 }}>{fmt.usd(r.changeDollar)}</span>
+            <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 6 }}>Today</span>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -272,9 +272,22 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
 }
 
 // ── Past Trade Row ────────────────────────────────────────────
-function PastRow({ t, i }: { t: PastTrade; i: number }) {
+function PastRow({ t, i, currentPrice }: { t: PastTrade; i: number; currentPrice?: number }) {
   const isBuy = t.signal === 'BUY';
   const color  = isBuy ? '#22c55e' : '#f43f5e';
+  
+  let pnlHtml = null;
+  if (currentPrice && currentPrice !== t.price) {
+    const diff = currentPrice - t.price;
+    const pnl = isBuy ? diff : -diff;
+    const pnlColor = pnl > 0 ? '#22c55e' : '#f43f5e';
+    pnlHtml = (
+      <span style={{ fontSize: 11, fontWeight: 700, color: pnlColor, display: 'inline-flex', alignItems: 'center', marginLeft: 6, background: `${pnlColor}15`, padding: '2px 6px', borderRadius: 4 }}>
+        {pnl > 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
+      </span>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -12 }}
@@ -282,7 +295,7 @@ function PastRow({ t, i }: { t: PastTrade; i: number }) {
       transition={{ delay: i * 0.04 }}
       style={{
         display: 'grid',
-        gridTemplateColumns: '8px 120px 1fr 130px',
+        gridTemplateColumns: '8px 200px 1fr 130px 40px',
         alignItems: 'center',
         gap: 16,
         padding: '14px 24px',
@@ -298,8 +311,10 @@ function PastRow({ t, i }: { t: PastTrade; i: number }) {
         <SignalBadge signal={t.signal} />
       </div>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff' }}>
-          ${t.price.toFixed(2)} {t.strikeLabel && <span style={{ color: '#a5b4fc', marginLeft: 6 }}>→ {t.strikeLabel}</span>}
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff', display: 'flex', alignItems: 'center' }}>
+          ${t.price.toFixed(2)} 
+          {pnlHtml}
+          {t.strikeLabel && <span style={{ color: '#a5b4fc', marginLeft: 8 }}>→ {t.strikeLabel}</span>}
         </div>
         <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t.reason}</div>
       </div>
@@ -422,18 +437,19 @@ export default function Dashboard() {
   const [mkt,       setMkt]       = useState(marketStatus());
   const [newTickers, setNewTick]  = useState<Set<string>>(new Set());
   const prevSig = useRef<Map<string, string>>(new Map());
+  const [tz,        setTz]        = useState('America/New_York');
 
   // Clock
   useEffect(() => {
     const tick = () => {
-      const et = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-      setTime(`${et} ET`);
+      const et = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      setTime(`${et}`);
       setMkt(marketStatus());
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [tz]);
 
   // Load past trades & pinned
   const loadLocals = useCallback(() => {
@@ -464,13 +480,13 @@ export default function Dashboard() {
       const sells   = data.filter(r => r.signal === 'SELL').length;
       const watches = data.filter(r => r.signal === 'WATCH').length;
       setStats({ total: d.totalScanned ?? data.length, buys, sells, watches });
-      setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true }));
+      setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }));
 
       // Detect new signals
       const newSet = new Set<string>();
       const newTrades: PastTrade[] = [];
-      const etDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: '2-digit' });
-      const etTime = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+      const etDate = new Date().toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
+      const etTime = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
       const nowTimeStr = `${etDate}, ${etTime}`;
 
       for (const item of data) {
@@ -506,7 +522,7 @@ export default function Dashboard() {
       }
     } catch (e) { console.error('[scan]', e); }
     finally { setScanning(false); setLoading(false); }
-  }, []);
+  }, [tz]);
 
   // Options fetch
   const fetchOptions = useCallback(async () => {
@@ -519,8 +535,13 @@ export default function Dashboard() {
     finally { setOptLoad(false); }
   }, []);
 
-  useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 15000); return () => clearInterval(id); }, [fetchScan]);
-  useEffect(() => { fetchOptions(); const id = setInterval(fetchOptions, 30000); return () => clearInterval(id); }, [fetchOptions]);
+  useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 60000); return () => clearInterval(id); }, [fetchScan]);
+  useEffect(() => { 
+    // Stagger Options load by 2 seconds so the initial live scanner polygon API rate limit drops don't trigger 429 errors
+    const timeoutid = setTimeout(fetchOptions, 2500); 
+    const id = setInterval(fetchOptions, 60000); 
+    return () => { clearTimeout(timeoutid); clearInterval(id); };
+  }, [fetchOptions]);
 
   const filtered = results.filter(r => {
     if (r.signal === 'NONE') return false;
@@ -577,7 +598,17 @@ export default function Dashboard() {
         <div style={{ flex: 1 }} />
         {scanning && <span style={{ fontSize: 11, color: '#6366f1' }}>⟳ Scanning...</span>}
         {lastScan && <span style={{ fontSize: 11, color: '#334155' }}>Updated {lastScan}</span>}
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#475569', fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{time}</span>
+        <select 
+          value={tz} 
+          onChange={e => setTz(e.target.value)}
+          style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 11, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <option value="America/New_York">EST</option>
+          <option value="America/Chicago">CST</option>
+          <option value="America/Denver">MST</option>
+          <option value="America/Los_Angeles">PST</option>
+        </select>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{time}</span>
       </div>
 
       {/* ── TAB BAR ── */}
@@ -704,7 +735,7 @@ export default function Dashboard() {
                 <>
                   <div style={{ margin: '0 24px', background: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
                     <div style={{
-                      display: 'grid', gridTemplateColumns: '8px 120px 1fr 130px 40px',
+                      display: 'grid', gridTemplateColumns: '8px 200px 1fr 130px 40px',
                       gap: 16, padding: '10px 24px',
                       background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)',
                       fontSize: 11, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -712,7 +743,7 @@ export default function Dashboard() {
                       <span /><span>Stock</span><span>Signal Reason</span><span style={{ textAlign: 'right' }}>Time & Strength</span><span>Action</span>
                     </div>
                     <AnimatePresence>
-                      {past.map((t, i) => <PastRow key={t.id} t={t} i={i} />)}
+                      {past.map((t, i) => <PastRow key={t.id} t={t} i={i} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
                     </AnimatePresence>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 24 }}>

@@ -78,7 +78,7 @@ export async function GET() {
         const rand = Math.abs(hash * seed) % 1;
         
         const price = 50 + rand * 300;
-        const change = (rand - 0.5) * 6; // -3% to +3%
+        const change = (rand - 0.5) * 8; // -4% to +4% so it can hit the 3.5 threshold
         const lastClose = price / (1 + change/100);
         
         return {

@@ -343,12 +343,14 @@ export function evaluateQuantitativeSetup(
   let signal: SignalType = 'NONE';
   let strength = 0;
 
-  if (Math.abs(change) > 2 || rvol > 1.5) {
+  if (Math.abs(change) > 3.5 || rvol > 3.0) {
     signal = isBullish ? 'BUY' : 'SELL';
-    strength = Math.min(99, Math.round(rvol * 15 + Math.abs(change) * 5));
-  } else if (Math.abs(change) > 1 || rvol > 1.2) {
+    // Quality over quantity: enforce high strength (85-99) for all execution signals
+    strength = Math.min(99, Math.max(85, Math.round(rvol * 15 + Math.abs(change) * 5)));
+  } else if (Math.abs(change) > 1.5 || rvol > 1.5) {
     signal = 'WATCH';
-    strength = Math.min(65, Math.round(rvol * 10 + Math.abs(change) * 3));
+    // Watch setups are capped to medium strength (65-84)
+    strength = Math.min(84, Math.max(65, Math.round(rvol * 10 + Math.abs(change) * 3)));
   } else {
     // If we're rendering it, it's at least a NONE
     return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
