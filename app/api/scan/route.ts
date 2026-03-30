@@ -65,7 +65,12 @@ export async function GET() {
     // If Polygon blocks the request because Options and Scan hit the 5/minute limit simultaneously, 
     // seamlessly inject our deterministic pseudo-data so the scanning engine never crashes.
     if (allSnaps.length === 0) {
-      let seed = Date.now() / 100000; // Changes slowly
+      // Use the flat date string as a seed so weekend prices don't mutate constantly.
+      const dateString = new Date().toDateString();
+      let seed = 0;
+      for (let i = 0; i < dateString.length; i++) seed += dateString.charCodeAt(i);
+      seed = seed * 1.5;
+
       allSnaps = WATCHLIST.map(ticker => {
         // Hash ticker
         let hash = 0;

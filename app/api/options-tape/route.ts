@@ -81,7 +81,11 @@ export async function GET() {
 
     // ── Fallback: generate realistic options natively when 429 blocked ──
     if (tape.length === 0) {
-      let coreSeed = Date.now() / 100000;
+      const dateString = new Date().toDateString();
+      let coreSeed = 0;
+      for (let i = 0; i < dateString.length; i++) coreSeed += dateString.charCodeAt(i);
+      coreSeed = coreSeed * 1.5;
+
       for (const ticker of SCAN_TICKERS.slice(0, 14)) {
         let hash = 0;
         for (let i = 0; i < ticker.length; i++) hash = ((hash << 5) - hash) + ticker.charCodeAt(i);

@@ -298,7 +298,9 @@ function PastRow({ t, i }: { t: PastTrade; i: number }) {
         <SignalBadge signal={t.signal} />
       </div>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff' }}>${t.price.toFixed(2)}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff' }}>
+          ${t.price.toFixed(2)} {t.strikeLabel && <span style={{ color: '#a5b4fc', marginLeft: 6 }}>→ {t.strikeLabel}</span>}
+        </div>
         <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t.reason}</div>
       </div>
       <div style={{ textAlign: 'right' }}>
@@ -355,7 +357,7 @@ function OptionsCard({ f, i }: { f: OptionsRow; i: number }) {
           background: isCall ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)',
           color, border: `1px solid ${color}33`,
         }}>
-          {isCall ? '↑ CALL' : '↓ PUT'}
+          {isCall ? '↑ BUY CALL' : '↓ BUY PUT'}
         </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -475,7 +477,9 @@ export default function Dashboard() {
         item.detectedAt = nowTimeStr;
         const prev = prevSig.current.get(item.ticker);
         const isFirstLoad = prevSig.current.size === 0;
-        if ((item.signal === 'BUY' || item.signal === 'SELL') && (prev !== item.signal || isFirstLoad)) {
+        
+        // ONLY trigger 'New Signal' if it actually changed while the dashboard was open (ignore first load dump)
+        if ((item.signal === 'BUY' || item.signal === 'SELL') && !isFirstLoad && prev && prev !== item.signal) {
           newSet.add(item.ticker);
           newTrades.push({
             id: `${item.ticker}-${Date.now()}-${Math.random()}`,
