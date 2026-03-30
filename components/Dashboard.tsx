@@ -57,6 +57,8 @@ interface PastTrade {
 
 interface PinnedTrade extends PastTrade {
   pinnedAt: number;
+  exitDate?: string;
+  exitTime?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -424,6 +426,7 @@ function OptionsCard({ f, i }: { f: OptionsRow; i: number }) {
 export default function Dashboard() {
   const [tab,       setTab]       = useState<'scanner'|'past'|'options'|'pinned'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
+  const [assetFilter, setAssetFilter] = useState<'all'|'stock'|'option'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [options,   setOptions]   = useState<OptionsRow[]>([]);
   const [past,      setPast]      = useState<PastTrade[]>([]);
@@ -489,6 +492,25 @@ export default function Dashboard() {
       const etTime = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
       const nowTimeStr = `${etDate}, ${etTime}`;
 
+      // Check pinned trades for flipped momentum exiting
+      setPinned(prevPinned => {
+        let updated = false;
+        const newPinned = prevPinned.map(p => {
+          if (p.exitDate) return p; // already exited
+          const match = data.find(d => d.ticker === p.ticker);
+          if (match && ((p.signal === 'BUY' && match.signal === 'SELL') || (p.signal === 'SELL' && match.signal === 'BUY'))) {
+            updated = true;
+            return { ...p, exitDate: etDate, exitTime: etTime };
+          }
+          return p;
+        });
+        if (updated) {
+          try { localStorage.setItem('shoption_pinned', JSON.stringify(newPinned)); } catch { /* ignore */ }
+          return newPinned;
+        }
+        return prevPinned;
+      });
+
       for (const item of data) {
         item.detectedAt = nowTimeStr;
         const prev = prevSig.current.get(item.ticker);
@@ -545,9 +567,11 @@ export default function Dashboard() {
 
   const filtered = results.filter(r => {
     if (r.signal === 'NONE') return false;
-    if (filter === 'buy')   return r.signal === 'BUY';
-    if (filter === 'sell')  return r.signal === 'SELL';
-    if (filter === 'watch') return r.signal === 'WATCH';
+    if (filter === 'buy' && r.signal !== 'BUY') return false;
+    if (filter === 'sell' && r.signal !== 'SELL') return false;
+    if (filter === 'watch' && r.signal !== 'WATCH') return false;
+    if (assetFilter === 'stock' && r.assetType !== 'STOCK') return false;
+    if (assetFilter === 'option' && r.assetType !== 'OPTION') return false;
     return true;
   });
 
@@ -647,27 +671,48 @@ export default function Dashboard() {
 
         {/* Filter chips (scanner only) */}
         {tab === 'scanner' && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            {([
-              { id: 'all', label: `All (${filtered.length + results.filter(r => r.signal === 'NONE').length})` }, // just show all with signals
-              { id: 'buy', label: `↑ Buy (${stats.buys})` },
-              { id: 'sell', label: `↓ Sell (${stats.sells})` },
-              { id: 'watch', label: `Watch (${stats.watches})` },
-            ] as { id: typeof filter; label: string }[]).map(({ id, label }) => {
-              const activeFilter = filter === id;
-              const chipColor = id === 'buy' ? '#22c55e' : id === 'sell' ? '#f43f5e' : id === 'watch' ? '#f59e0b' : '#f0f4ff';
-              return (
-                <button key={id} onClick={() => setFilter(id)} style={{
-                  padding: '6px 14px', borderRadius: 100, border: `1px solid ${activeFilter ? chipColor + '55' : 'rgba(255,255,255,0.08)'}`,
-                  background: activeFilter ? `${chipColor}15` : 'transparent',
-                  color: activeFilter ? chipColor : '#475569',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.15s',
-                }}>
-                  {label}
-                </button>
-              );
-            })}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 6, borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: 12 }}>
+              {([
+                { id: 'all', label: 'All Assets' },
+                { id: 'stock', label: 'Stocks' },
+                { id: 'option', label: 'Options' },
+              ] as { id: typeof assetFilter; label: string }[]).map(({ id, label }) => {
+                const active = assetFilter === id;
+                return (
+                  <button key={id} onClick={() => setAssetFilter(id as any)} style={{
+                    padding: '6px 14px', borderRadius: 100, border: `1px solid ${active ? '#6366f155' : 'rgba(255,255,255,0.08)'}`,
+                    background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
+                    color: active ? '#a5b4fc' : '#475569',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([
+                { id: 'all', label: `All Signals (${filtered.length})` },
+                { id: 'buy', label: `↑ Buy (${stats.buys})` },
+                { id: 'sell', label: `↓ Sell (${stats.sells})` },
+                { id: 'watch', label: `Watch (${stats.watches})` },
+              ] as { id: typeof filter; label: string }[]).map(({ id, label }) => {
+                const activeFilter = filter === id;
+                const chipColor = id === 'buy' ? '#22c55e' : id === 'sell' ? '#f43f5e' : id === 'watch' ? '#f59e0b' : '#f0f4ff';
+                return (
+                  <button key={id} onClick={() => setFilter(id)} style={{
+                    padding: '6px 14px', borderRadius: 100, border: `1px solid ${activeFilter ? chipColor + '55' : 'rgba(255,255,255,0.08)'}`,
+                    background: activeFilter ? `${chipColor}15` : 'transparent',
+                    color: activeFilter ? chipColor : '#475569',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.15s',
+                  }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -842,12 +887,6 @@ export default function Dashboard() {
                       const isCall = p.signal === 'BUY';
                       const color = isCall ? '#22c55e' : '#f43f5e';
                       
-                      // Dynamic Exit Logic
-                      const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                      const mins = et.getHours() * 60 + et.getMinutes();
-                      const isClosingSoon = mins >= 940 && mins < 960; // 3:40 PM - 4:00 PM
-                      const isClosed = mins >= 960;
-
                       return (
                         <motion.div key={p.id}
                           layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -884,20 +923,16 @@ export default function Dashboard() {
                               <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Dynamic Exit Plan</div>
                               <div style={{
                                 padding: '12px', borderRadius: 8,
-                                background: isClosed ? 'rgba(244,63,94,0.1)' : isClosingSoon ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.08)',
-                                border: `1px solid ${isClosed ? 'rgba(244,63,94,0.3)' : isClosingSoon ? 'rgba(245,158,11,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                                background: p.exitDate ? 'rgba(244,63,94,0.1)' : 'rgba(34,197,94,0.08)',
+                                border: `1px solid ${p.exitDate ? 'rgba(244,63,94,0.3)' : 'rgba(34,197,94,0.3)'}`,
                               }}>
-                                {isClosed ? (
+                                {p.exitDate ? (
                                   <div style={{ display: 'flex', gap: 8, color: '#f43f5e', fontSize: 13, fontWeight: 600 }}>
-                                    <span>⚠️</span> <span>Market Closed. You must be completely out or you hold overnight risk against decay.</span>
-                                  </div>
-                                ) : isClosingSoon ? (
-                                  <div style={{ display: 'flex', gap: 8, color: '#f59e0b', fontSize: 13, fontWeight: 600 }}>
-                                    <span>⏳</span> <span>Closing bell approaches (3:55 PM). Liquidate position immediately to avoid overnight gap risk.</span>
+                                    <span>⚠️</span> <span>Momentum Flipped! Sell triggered at {p.exitTime} on {p.exitDate}.</span>
                                   </div>
                                 ) : (
                                   <div style={{ display: 'flex', gap: 8, color: '#4ade80', fontSize: 13, fontWeight: 600 }}>
-                                    <span>✅</span> <span>Safe to ride momentum. Close out if thesis invalidates or secure 20% partial profits. Final Exit strictly by 3:55 PM today.</span>
+                                    <span>✅</span> <span>Safe to ride momentum. Sell Date: ---</span>
                                   </div>
                                 )}
                               </div>

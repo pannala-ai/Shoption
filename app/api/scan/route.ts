@@ -71,14 +71,15 @@ export async function GET() {
       for (let i = 0; i < dateString.length; i++) seed += dateString.charCodeAt(i);
       seed = seed * 1.5;
 
-      allSnaps = WATCHLIST.map(ticker => {
+      allSnaps = WATCHLIST.map((ticker, index) => {
         // Hash ticker
         let hash = 0;
         for (let i = 0; i < ticker.length; i++) hash = ((hash << 5) - hash) + ticker.charCodeAt(i);
         const rand = Math.abs(hash * seed) % 1;
         
         const price = 50 + rand * 300;
-        const change = (rand - 0.5) * 8; // -4% to +4% so it can hit the 3.5 threshold
+        const sign = index % 2 === 0 ? 1 : -1;
+        const change = sign * (rand * 6); // mathematically guarantee both calls and puts and wide swings
         const lastClose = price / (1 + change/100);
         
         return {
@@ -141,7 +142,23 @@ export async function GET() {
         .filter(r => r.price > 0);
     }
 
-    // Sort: BUY/SELL first then strength
+    // Force rank by strict quantitative score
+    const score = (r: ScanResult) => ((r.signal === 'BUY' || r.signal === 'SELL') ? 1000 : 0) + r.signalStrength;
+    results.sort((a, b) => score(b) - score(a));
+
+    let activeSignals = 0;
+    results = results.map(r => {
+      if (r.signal === 'BUY' || r.signal === 'SELL') {
+        if (activeSignals >= 5) {
+          // Absolute cap of 5 signals per cycle to prevent flooding. Downgrade.
+          return { ...r, signal: 'WATCH', reason: r.reason + ' • [Downgraded due to signal limit]' };
+        }
+        activeSignals++;
+      }
+      return r;
+    });
+
+    // Final sort for the frontend
     results.sort((a, b) => {
       const p: Record<string, number> = { BUY: 4, SELL: 4, WATCH: 2, NONE: 1 };
       return (p[b.signal] - p[a.signal]) || b.signalStrength - a.signalStrength;
