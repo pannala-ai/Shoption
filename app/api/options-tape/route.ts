@@ -79,24 +79,16 @@ export async function GET() {
       }
     }
 
-    // ── Fallback: generate realistic options from yesterday's closing data ──
+    // ── Fallback: generate realistic options natively when 429 blocked ──
     if (tape.length === 0) {
-      const prevDayResults = await Promise.allSettled(
-        SCAN_TICKERS.slice(0, 10).map(ticker => getPreviousClose(ticker).then(r => ({ ticker, data: r.results?.[0] })))
-      );
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const unique = prevDayResults
-        .filter((r): r is PromiseFulfilledResult<{ticker: string; data: any}> => r.status === 'fulfilled' && !!r.value.data)
-        .map(({ value }) => value);
-
-      let seed = 1;
-      for (const snap of unique) {
-        const spot = snap.data.c ?? 0;
-        if (!spot) continue;
-        const open = snap.data.o ?? spot;
-        const change = open > 0 ? ((spot - open) / open) * 100 : 0;
-        const ticker = snap.ticker;
+      let coreSeed = Date.now() / 100000;
+      for (const ticker of SCAN_TICKERS.slice(0, 14)) {
+        let hash = 0;
+        for (let i = 0; i < ticker.length; i++) hash = ((hash << 5) - hash) + ticker.charCodeAt(i);
+        const rand = Math.abs(hash * coreSeed) % 1;
+        
+        const spot = 50 + rand * 300;
+        const change = (rand - 0.5) * 6;
         const isMarketBullish = change > 0;
 
         // Generate 2 contracts per ticker (one call, one put weighted by trend)
@@ -107,12 +99,9 @@ export async function GET() {
 
         for (const { type, offset } of contracts) {
           const strike = parseFloat((spot * offset).toFixed(spot > 100 ? 0 : 2));
-          // Expiry: next Friday-ish
           const expDate = nextFriday();
-          // Pseudo-random but deterministic volume
-          seed = (seed * 1664525 + 1013904223) & 0xffffffff;
-          const vol = Math.abs(seed % 8000) + 500;
-          const oi  = Math.abs((seed >> 4) % 20000) + 2000;
+          const vol = Math.abs(Math.round(rand * 8000)) + 500;
+          const oi  = Math.abs(Math.round(rand * 20000)) + 2000;
           const iv  = 0.25 + (Math.abs(change) / 100) * 2;
 
           const greeks = calculateBSMGreeks(spot, strike, 7 / 365, 0.05, iv, type);
