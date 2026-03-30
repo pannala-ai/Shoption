@@ -279,10 +279,10 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
   );
 }
 
-// ── Past Trade Row ────────────────────────────────────────────
-function PastRow({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number }) {
+// ── Past Trade Card ────────────────────────────────────────────
+function PastCard({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number }) {
   const isBuy = t.signal === 'BUY';
-  const color  = isBuy ? '#22c55e' : '#f43f5e';
+  const color = isBuy ? '#22c55e' : '#f43f5e';
   
   let pnlHtml = null;
   if (currentPrice && currentPrice !== t.price) {
@@ -290,7 +290,7 @@ function PastRow({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTr
     const pnl = isBuy ? diff : -diff;
     const pnlColor = pnl > 0 ? '#22c55e' : '#f43f5e';
     pnlHtml = (
-      <span style={{ fontSize: 11, fontWeight: 700, color: pnlColor, display: 'inline-flex', alignItems: 'center', marginLeft: 6, background: `${pnlColor}15`, padding: '2px 6px', borderRadius: 4 }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: pnlColor, background: `${pnlColor}15`, padding: '2px 8px', borderRadius: 6, marginLeft: 'auto' }}>
         {pnl > 0 ? '+' : ''}${Math.abs(pnl).toFixed(2)}
       </span>
     );
@@ -298,53 +298,61 @@ function PastRow({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTr
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       style={{
-        display: 'grid',
-        gridTemplateColumns: '8px 200px 1fr 130px 40px',
-        alignItems: 'center',
-        gap: 16,
-        padding: '14px 24px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        background: isBuy
+          ? 'linear-gradient(160deg, rgba(34,197,94,0.06) 0%, rgba(5,5,15,0.95) 70%)'
+          : 'linear-gradient(160deg, rgba(244,63,94,0.06) 0%, rgba(5,5,15,0.95) 70%)',
+        border: `1px solid ${color}33`, borderTop: `2px solid ${color}`,
+        borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden',
+        boxShadow: `0 8px 32px -12px ${color}22`
       }}
     >
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#f0f4ff' }}>{t.ticker}</span>
-        {t.assetType && (
-          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: t.assetType === 'OPTION' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.1)', color: t.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8' }}>{t.assetType}</span>
-        )}
-        <SignalBadge signal={t.signal} />
-      </div>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff', display: 'flex', alignItems: 'center' }}>
-          ${t.price.toFixed(2)} 
-          {pnlHtml}
-          {t.strikeLabel && <span style={{ color: '#a5b4fc', marginLeft: 8 }}>→ {t.strikeLabel}</span>}
+      <div style={{ position: 'absolute', top: -50, right: -50, width: 140, height: 140, borderRadius: '50%', background: `radial-gradient(circle, ${color}12, transparent 70%)`, pointerEvents: 'none' }} />
+
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>{t.ticker}</span>
+            {t.assetType && (
+               <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4, background: t.assetType === 'OPTION' ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.08)', color: t.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8', border: '1px solid rgba(255,255,255,0.05)' }}>
+                 {t.assetType}
+               </span>
+            )}
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#f8fafc', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            Entry: ${t.price.toFixed(2)}
+          </div>
+          {t.strikeLabel && <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', marginTop: 4 }}>↳ Target {t.strikeLabel}</div>}
         </div>
-        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t.reason}</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <SignalBadge signal={t.signal} />
+          <div style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{t.date} · {t.time}</div>
+        </div>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color }}>Strength: {t.strength}%</div>
-        <div style={{ fontSize: 11, color: '#4e5d73', marginTop: 2 }}>{t.date} · {t.time}</div>
+
+      <div style={{ position: 'relative' }}>
+        <Sparkline color={color} />
       </div>
-      <div style={{ paddingLeft: 10 }}>
-        <button
-          onClick={() => {
-            onPin({ ...t, pinnedAt: Date.now() });
-          }}
-          style={{ padding: '6px', fontSize: 12, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', transition: 'background 0.2s' }}
-          title="Pin Trade"
-        >
-          📌
+
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: 12 }}>
+         <div style={{ fontSize: 11, color: '#94a3b8', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.05)', flex: 1 }}>
+            {t.reason}
+         </div>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: 12, justifyContent: 'space-between' }}>
+        <button onClick={() => onPin({ ...t, pinnedAt: Date.now() })} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer' }}>
+          📌 PIN
         </button>
+        {pnlHtml}
       </div>
     </motion.div>
   );
 }
 
-// ── Options Flow Card ─────────────────────────────────────────
+// ── Options Flow Glassmorphic Card ──────────────────────────────
 function OptionsCard({ f, i, tz }: { f: OptionsRow; i: number; tz: string }) {
   const isCall = f.type === 'call';
   const color  = isCall ? '#22c55e' : '#f43f5e';
@@ -352,74 +360,58 @@ function OptionsCard({ f, i, tz }: { f: OptionsRow; i: number; tz: string }) {
   const timeStr = new Date(f.timestamp || Date.now()).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.04 }}
+      initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
       style={{
-        background: '#111827',
-        borderTop: `3px solid ${color}`,
-        border: `1px solid ${color}22`,
-        borderRadius: 14,
-        padding: '16px',
-        cursor: 'default',
-        transition: 'transform 0.15s',
+        background: isCall
+          ? 'linear-gradient(160deg, rgba(34,197,94,0.06) 0%, rgba(5,5,15,0.95) 70%)'
+          : 'linear-gradient(160deg, rgba(244,63,94,0.06) 0%, rgba(5,5,15,0.95) 70%)',
+        border: `1px solid ${color}33`, borderTop: `2px solid ${color}`,
+        borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden',
+        boxShadow: `0 8px 32px -12px ${color}22`
       }}
-      whileHover={{ y: -3 }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontWeight: 800, fontSize: 16, color: '#f0f4ff' }}>{f.ticker}</span>
-        <span style={{
-          display: 'inline-flex', gap: 4, alignItems: 'center',
-          padding: '2px 10px', borderRadius: 100, fontSize: 10, fontWeight: 700,
-          background: isCall ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)',
-          color, border: `1px solid ${color}33`,
-        }}>
-          {isCall ? '↑ BUY CALL' : '↓ BUY PUT'}
-        </span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 3 }}>Strike</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color }}>
-            ${f.strike < 10 ? f.strike.toFixed(2) : f.strike.toFixed(0)}
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 3 }}>Expires</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>{f.expiry.slice(5)}</div>
-          <div style={{ fontSize: 10, color: '#4e5d73' }}>{dte} days</div>
+      <div style={{ position: 'absolute', top: -50, right: -50, width: 140, height: 140, borderRadius: '50%', background: `radial-gradient(circle, ${color}12, transparent 70%)`, pointerEvents: 'none' }} />
+
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+           <span style={{ fontWeight: 800, fontSize: 24, color: '#f8fafc', letterSpacing: '-0.02em' }}>{f.ticker}</span>
+           <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4, background: isCall ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)', color, border: `1px solid ${color}33` }}>
+             {isCall ? '↑ BUY CALL' : '↓ BUY PUT'}
+           </span>
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+
+      <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.03)' }}>
+           <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>STRIKE</div>
+           <div style={{ fontSize: 13, fontWeight: 700, color }}>${f.strike < 10 ? f.strike.toFixed(2) : f.strike.toFixed(0)}</div>
+         </div>
+         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.03)', textAlign: 'right' }}>
+           <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>EXPIRES</div>
+           <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{f.expiry.slice(5)} <span style={{fontSize: 9, color:'#64748b'}}>({dte}d)</span></div>
+         </div>
+      </div>
+
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div>
-          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Volume</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff' }}>{fmt.vol(f.volume)}</div>
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>VOLUME</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc' }}>{fmt.vol(f.volume)}</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Detected</div>
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>TIME</div>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8' }}>{timeStr}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Vol/OI</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: f.volumeOIRatio > 1 ? '#f59e0b' : '#64748b' }}>
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>VOL/OI EDGE</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: f.volumeOIRatio > 1 ? '#f59e0b' : '#94a3b8' }}>
             {f.volumeOIRatio.toFixed(1)}x
           </div>
         </div>
       </div>
+
       {f.isUnusual && (
-        <div style={{
-          marginTop: 10, padding: '4px 0', textAlign: 'center', fontSize: 10, fontWeight: 700,
-          color: '#f59e0b', borderTop: '1px solid rgba(255,255,255,0.05)',
-        }}>
-          ⚡ Unusual Institutional Activity
-        </div>
-      )}
-      {f.isGenerated && (
-        <div style={{
-          marginTop: 10, padding: '4px 0', textAlign: 'center', fontSize: 10, fontWeight: 500,
-          color: '#64748b', borderTop: '1px solid rgba(255,255,255,0.05)',
-        }}>
-          💡 Historical / Generated Data
+        <div style={{ marginTop: 12, padding: '6px 0', textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', borderRadius: 6, border: '1px solid rgba(245,158,11,0.2)' }}>
+          ⚡ INSTITUTIONAL ACTIVITY SWEEP
         </div>
       )}
     </motion.div>
@@ -804,18 +796,12 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <div style={{ margin: '0 24px', background: '#111827', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
-                    <div style={{
-                      display: 'grid', gridTemplateColumns: '8px 200px 1fr 130px 40px',
-                      gap: 16, padding: '10px 24px',
-                      background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)',
-                      fontSize: 11, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>
-                      <span /><span>Stock</span><span>Signal Reason</span><span style={{ textAlign: 'right' }}>Time & Strength</span><span>Action</span>
+                  <div style={{ padding: '0 24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
+                      <AnimatePresence>
+                        {past.map(t => <PastCard key={t.id} t={t} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
+                      </AnimatePresence>
                     </div>
-                    <AnimatePresence>
-                      {past.map(t => <PastRow key={t.id} t={t} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
-                    </AnimatePresence>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 24 }}>
                     <button onClick={() => { setPast([]); try { localStorage.removeItem('shoption_past'); } catch { /**/ } }}

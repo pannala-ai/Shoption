@@ -362,8 +362,15 @@ export function evaluateQuantitativeSetup(
 
   if (Math.abs(change) > 2.0 || rvol > 2.0) {
     signal = isBullish ? 'BUY' : 'SELL';
-    // Quality over quantity: enforce high strength (85-99) for all execution signals
-    strength = Math.min(99, Math.max(85, Math.round(rvol * 15 + Math.abs(change) * 5)));
+    
+    // Calculate raw strength based on momentum violence 
+    strength = Math.round(rvol * 12 + Math.abs(change) * 6 + 45); // Baseline around 65-75
+    strength = Math.min(99, Math.max(10, strength));
+    
+    // Absolute destruction of anything lower than Grade B (75%)
+    if (strength < 75) {
+      return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
+    }
   } else {
     // Drop sub-par setups directly to NONE
     return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
