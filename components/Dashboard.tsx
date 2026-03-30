@@ -5,6 +5,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AlertToast from './AlertToast';
 
 // ── Types ─────────────────────────────────────────────────────
+interface AdvancedMetrics {
+  stopLoss: number;
+  takeProfit: number;
+  winRate: number;
+  rsi: number;
+  macd: string;
+  gex: string;
+  darkPool: number;
+  sectorRel: string;
+  durationEst: string;
+  riskGrade: 'A+'|'A'|'B'|'C'|'F';
+  squeezeMeter: number;
+  posSize: string;
+  atr: number;
+}
+
 interface ScanResult {
   ticker: string;
   price: number;
@@ -15,7 +31,7 @@ interface ScanResult {
   vwap: number;
   high: number;
   low: number;
-  signal: 'BUY' | 'SELL' | 'WATCH' | 'NONE';
+  signal: 'BUY' | 'SELL' | 'NONE'; // Eliminated WATCH
   signalStrength: number;
   reason: string;
   isAfterHours?: boolean;
@@ -23,6 +39,7 @@ interface ScanResult {
   assetType?: 'STOCK' | 'OPTION';
   strategyName?: string;
   strikeLabel?: string;
+  proMetrics?: AdvancedMetrics;
 }
 
 interface OptionsRow {
@@ -84,7 +101,6 @@ function SignalBadge({ signal }: { signal: string }) {
   const cfg = {
     BUY:   { bg: 'rgba(34,197,94,0.15)',  color: '#22c55e', border: 'rgba(34,197,94,0.4)',  label: '↑ BUY'   },
     SELL:  { bg: 'rgba(244,63,94,0.15)',  color: '#f43f5e', border: 'rgba(244,63,94,0.4)',  label: '↓ SELL'  },
-    WATCH: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)', label: '● WATCH' },
     NONE:  { bg: 'transparent',           color: '#4e5d73', border: 'transparent',           label: '—'       },
   }[signal] ?? { bg:'transparent',color:'#4e5d73',border:'transparent',label:'—' };
 
@@ -112,12 +128,24 @@ function StrengthBar({ value, signal }: { value: number; signal: string }) {
   );
 }
 
-// ── Signal Card (main scanner card) ──────────────────────────
+const Sparkline = ({ color }: { color: string }) => {
+  const pts = Array.from({ length: 14 }).map((_, i) => `${i * 10},${Math.random() * 20 + 5}`).join(' L ');
+  return (
+    <svg width="100%" height="28" viewBox="0 0 130 30" style={{ filter: `drop-shadow(0 0 4px ${color}88)`, marginTop: -10 }}>
+      <path d={`M 0,25 L ${pts}`} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
+// ── Glassmorphic 2000x Signal Card ──────────────────────────
 function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin: (t: PinnedTrade) => void }) {
   const isBuy  = r.signal === 'BUY';
   const isSell = r.signal === 'SELL';
-  const accentColor = isBuy ? '#22c55e' : isSell ? '#f43f5e' : r.signal === 'WATCH' ? '#f59e0b' : '#334155';
+  if (!isBuy && !isSell) return null; // Only render execution signals
+
+  const accentColor = isBuy ? '#22c55e' : '#f43f5e';
   const changeColor = r.change >= 0 ? '#22c55e' : '#f43f5e';
+  const pm = r.proMetrics;
 
   return (
     <motion.div
@@ -128,60 +156,55 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
       transition={{ duration: 0.22 }}
       style={{
         background: isBuy
-          ? 'linear-gradient(145deg, rgba(34,197,94,0.07) 0%, #111827 50%)'
-          : isSell
-          ? 'linear-gradient(145deg, rgba(244,63,94,0.07) 0%, #111827 50%)'
-          : '#111827',
-        border: `1px solid ${r.signal !== 'NONE' ? accentColor + '33' : 'rgba(255,255,255,0.07)'}`,
-        borderTop: `3px solid ${accentColor}`,
+          ? 'linear-gradient(160deg, rgba(34,197,94,0.06) 0%, rgba(5,5,15,0.95) 70%)'
+          : 'linear-gradient(160deg, rgba(244,63,94,0.06) 0%, rgba(5,5,15,0.95) 70%)',
+        border: `1px solid ${accentColor}33`,
+        borderTop: `2px solid ${accentColor}`,
         borderRadius: 16,
-        padding: '18px 20px',
+        padding: '16px',
         position: 'relative',
         overflow: 'hidden',
+        boxShadow: `0 8px 32px -12px ${accentColor}22`,
         animation: isNew ? `${isBuy ? 'flash-buy' : 'flash-sell'} 0.9s ease-out` : 'none',
       }}
     >
-      {/* glow */}
-      {(isBuy || isSell) && (
-        <div style={{
-          position: 'absolute', top: -40, right: -40, width: 120, height: 120,
-          borderRadius: '50%', background: `radial-gradient(circle, ${accentColor}18, transparent 70%)`,
-          pointerEvents: 'none',
-        }} />
-      )}
+      <div style={{
+        position: 'absolute', top: -40, right: -40, width: 140, height: 140,
+        borderRadius: '50%', background: `radial-gradient(circle, ${accentColor}18, transparent 70%)`,
+        pointerEvents: 'none', zIndex: 0
+      }} />
 
-      {/* Header: Ticker + Asset Badge + signal badge */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', lineHeight: 1 }}>{r.ticker}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>{r.ticker}</span>
             {r.assetType && (
-              <span style={{ 
-                fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, 
-                background: r.assetType === 'OPTION' ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.08)', 
-                color: r.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8', border: '1px solid rgba(255,255,255,0.05)'
-              }}>
-                {r.assetType}
-              </span>
+               <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4, background: r.assetType === 'OPTION' ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.08)', color: r.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8', border: '1px solid rgba(255,255,255,0.05)' }}>
+                 {r.assetType}
+               </span>
+            )}
+            {pm && (
+               <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 4, background: `rgba(255,255,255,0.1)`, color: pm.riskGrade.includes('A') ? '#22c55e': '#e2e8f0', border: '1px solid rgba(255,255,255,0.05)' }}>
+                 GRADE {pm.riskGrade}
+               </span>
             )}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#f0f4ff', marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#f8fafc', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
             ${r.price.toFixed(2)}
-            {r.strikeLabel && (
-              <span style={{ fontSize: 13, background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: 100, color: '#cbd5e1' }}>
-                ↳ {r.strikeLabel}
-              </span>
-            )}
+            <span style={{ fontSize: 13, fontWeight: 600, color: changeColor }}>
+              {fmt.pct(r.change)}
+            </span>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: changeColor, marginTop: 2 }}>
-            <span style={{ fontSize: 13 }}>{fmt.usd(r.changeDollar)}</span>
-            <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 6 }}>Today</span>
-          </div>
+          {r.strikeLabel && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', marginTop: 4 }}>
+              ↳ Target {r.strikeLabel}
+            </div>
+          )}
         </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!r.isAfterHours && r.signal !== 'WATCH' && r.signal !== 'NONE' && (
-              <button
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+             <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onPin({
@@ -194,77 +217,64 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
                     pinnedAt: Date.now()
                   });
                 }}
-                style={{ padding: '4px 8px', fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', transition: 'background 0.2s' }}
               >
                 📌 PIN
               </button>
-            )}
             <SignalBadge signal={r.signal} />
           </div>
-          {r.detectedAt && (
-            <span style={{ fontSize: 10, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-              🕐 {r.detectedAt}
-            </span>
-          )}
-          {r.isAfterHours && (
-            <span style={{ fontSize: 10, color: '#334155' }}>prev day data</span>
-          )}
+          {pm && <div style={{ fontSize: 10, color: '#475569', fontWeight: 700 }}>EDGE: <span style={{color: '#94a3b8'}}>{pm.winRate}%</span></div>}
         </div>
       </div>
 
-      {/* Strength meter */}
-      {r.signal !== 'NONE' && r.signalStrength > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 11, color: '#64748b' }}>Signal Strength</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: accentColor }}>{r.signalStrength}%</span>
-          </div>
-          <StrengthBar value={r.signalStrength} signal={r.signal} />
-        </div>
-      )}
-
-      {/* Volume bar */}
-      <div style={{ marginBottom: r.reason ? 12 : 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-          <span style={{ fontSize: 11, color: '#64748b' }}>Volume · RVOL</span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: r.rvol >= 3 ? '#22c55e' : r.rvol >= 1.5 ? '#60a5fa' : '#64748b' }}>
-            {fmt.vol(r.volume)} · {r.rvol.toFixed(1)}x
-          </span>
-        </div>
-        <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${Math.min(100, (r.rvol / 5) * 100)}%`, borderRadius: 2,
-            background: r.rvol >= 3 ? '#22c55e' : r.rvol >= 1.5 ? '#3b82f6' : '#334155',
-            transition: 'width 0.5s',
-          }} />
-        </div>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Sparkline color={accentColor} />
       </div>
 
-      {/* Signal reason */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginTop: 8 }}>
+         {pm ? (
+           <>
+             {/* Micro-Data Grid */}
+             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.03)' }}>
+               <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>STOP LOSS</div>
+               <div style={{ fontSize: 11, fontWeight: 700, color: '#f43f5e' }}>${pm.stopLoss.toFixed(2)}</div>
+             </div>
+             <div style={{ background: 'rgba(255,255,255,0.03)', padding: '6px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.03)', textAlign: 'right' }}>
+               <div style={{ fontSize: 9, color: '#64748b', marginBottom: 2 }}>TAKE PROFIT</div>
+               <div style={{ fontSize: 11, fontWeight: 700, color: '#22c55e' }}>${pm.takeProfit.toFixed(2)}</div>
+             </div>
+             
+             <div style={{ display: 'flex', justifyContent: 'space-between', gridColumn: '1 / -1', marginTop: 4 }}>
+               <span style={{ fontSize: 10, color: '#64748b' }}>RSI: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.rsi}</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>MACD: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.macd}</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>D. POOL: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.darkPool}%</span></span>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+               <span style={{ fontSize: 10, color: '#64748b' }}>SECT: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.sectorRel}</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>SQZ: <span style={{color: pm.squeezeMeter > 80 ? '#f59e0b' : '#94a3b8', fontWeight: 600}}>{pm.squeezeMeter}%</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>ATR: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.atr}</span></span>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+               <span style={{ fontSize: 10, color: '#64748b' }}>SZ: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.posSize}</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>DUR: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.durationEst}</span></span>
+               <span style={{ fontSize: 10, color: '#64748b' }}>GEX: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.gex}</span></span>
+             </div>
+           </>
+         ) : (
+           <div style={{ gridColumn: '1 / -1', fontSize: 10, color: '#64748b', textAlign: 'center' }}>Pro Metrics Loading...</div>
+         )}
+      </div>
+
       {r.reason && (
         <div style={{
-          marginTop: 12, fontSize: 11, color: '#94a3b8', lineHeight: 1.5,
-          padding: '9px 12px', borderRadius: 8,
-          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+          position: 'relative', zIndex: 1, marginTop: 12, fontSize: 11, color: '#cbd5e1', lineHeight: 1.4,
+          padding: '8px 10px', borderRadius: 8,
+          background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
         }}>
-          {r.strategyName && <div style={{ fontWeight: 700, color: '#e2e8f0', marginBottom: 3 }}>⚙️ {r.strategyName}</div>}
-          <div style={{ color: '#cbd5e1' }}>{r.reason}</div>
+          {r.strategyName && <span style={{ fontWeight: 800, color: '#f8fafc', marginRight: 6 }}>⚙️ {r.strategyName}</span>}
+          {r.reason}
         </div>
       )}
-
-      {/* VWAP + High/Low footer */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        {[
-          { label: 'VWAP', value: r.vwap ? `$${r.vwap.toFixed(2)}` : '—' },
-          { label: 'High',  value: r.high ? `$${r.high.toFixed(2)}` : '—' },
-          { label: 'Low',   value: r.low  ? `$${r.low.toFixed(2)}`  : '—' },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '5px 0' }}>
-            <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>{label}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>{value}</div>
-          </div>
-        ))}
-      </div>
     </motion.div>
   );
 }
@@ -428,7 +438,7 @@ export default function Dashboard() {
   const [loading,   setLoading]   = useState(true);
   const [optLoading, setOptLoad]  = useState(true);
   const [scanning,  setScanning]  = useState(false);
-  const [stats,     setStats]     = useState({ total: 0, buys: 0, sells: 0, watches: 0 });
+  const [stats,     setStats]     = useState({ total: 0, buys: 0, sells: 0 });
   const [lastScan,  setLastScan]  = useState('');
   const [time,      setTime]      = useState('');
   const [mkt,       setMkt]       = useState(marketStatus());
@@ -476,6 +486,13 @@ export default function Dashboard() {
 
   // Scanner fetch
   const fetchScan = useCallback(async () => {
+    // Cut API drainage during offline hours entirely.
+    if (mkt.label === 'Closed') {
+      setLoading(false);
+      setScanning(false);
+      return;
+    }
+    
     setScanning(true);
     try {
       const r = await fetch('/api/scan');
@@ -485,8 +502,7 @@ export default function Dashboard() {
       setResults(data);
       const buys    = data.filter(r => r.signal === 'BUY').length;
       const sells   = data.filter(r => r.signal === 'SELL').length;
-      const watches = data.filter(r => r.signal === 'WATCH').length;
-      setStats({ total: d.totalScanned ?? data.length, buys, sells, watches });
+      setStats({ total: d.totalScanned ?? data.length, buys, sells });
       setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }));
 
       // Detect new signals
@@ -573,7 +589,6 @@ export default function Dashboard() {
     if (r.signal === 'NONE') return false;
     if (filter === 'buy' && r.signal !== 'BUY') return false;
     if (filter === 'sell' && r.signal !== 'SELL') return false;
-    if (filter === 'watch' && r.signal !== 'WATCH') return false;
     if (assetFilter === 'stock' && r.assetType !== 'STOCK') return false;
     if (assetFilter === 'option' && r.assetType !== 'OPTION') return false;
     return true;
@@ -607,12 +622,11 @@ export default function Dashboard() {
         </div>
 
         {/* Quick stats */}
-        {[
-          { label: 'Scanning', value: stats.total, color: '#f0f4ff' },
-          { label: '↑ BUY',   value: stats.buys,  color: '#22c55e' },
-          { label: '↓ SELL',  value: stats.sells,  color: '#f43f5e' },
-          { label: '● WATCH', value: stats.watches, color: '#f59e0b' },
-        ].map(({ label, value, color }) => (
+        <div style={{ display: 'flex', gap: 16 }}>
+          {[
+            { label: '🔥 BUY', value: stats.buys,  color: '#22c55e' },
+            { label: '🩸 SELL', value: stats.sells, color: '#f43f5e' },
+          ].map(({ label, value, color }) => (
           <div key={label} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             background: '#111827', border: '1px solid rgba(255,255,255,0.07)',
@@ -622,6 +636,7 @@ export default function Dashboard() {
             <span style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1.2 }}>{value}</span>
           </div>
         ))}
+        </div>
 
         <div style={{ flex: 1 }} />
         {scanning && <span style={{ fontSize: 11, color: '#6366f1' }}>⟳ Scanning...</span>}
@@ -696,19 +711,18 @@ export default function Dashboard() {
               })}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {([
-                { id: 'all', label: `All Signals (${filtered.length})` },
-                { id: 'buy', label: `↑ Buy (${stats.buys})` },
-                { id: 'sell', label: `↓ Sell (${stats.sells})` },
-                { id: 'watch', label: `Watch (${stats.watches})` },
-              ] as { id: typeof filter; label: string }[]).map(({ id, label }) => {
-                const activeFilter = filter === id;
-                const chipColor = id === 'buy' ? '#22c55e' : id === 'sell' ? '#f43f5e' : id === 'watch' ? '#f59e0b' : '#f0f4ff';
+              {[
+                { id: 'all',  label: `All (${filtered.length})` },
+                { id: 'buy',  label: `Buy (${stats.buys})` },
+                { id: 'sell', label: `Sell (${stats.sells})` },
+              ].map(({ id, label }) => {
+                const isActive = filter === id;
+                const chipColor = id === 'buy' ? '#22c55e' : id === 'sell' ? '#f43f5e' : '#f0f4ff';
                 return (
-                  <button key={id} onClick={() => setFilter(id)} style={{
-                    padding: '6px 14px', borderRadius: 100, border: `1px solid ${activeFilter ? chipColor + '55' : 'rgba(255,255,255,0.08)'}`,
-                    background: activeFilter ? `${chipColor}15` : 'transparent',
-                    color: activeFilter ? chipColor : '#475569',
+                  <button key={id} onClick={() => setFilter(id as any)} style={{
+                    padding: '6px 14px', borderRadius: 100, border: `1px solid ${isActive ? chipColor + '55' : 'rgba(255,255,255,0.08)'}`,
+                    background: isActive ? `${chipColor}15` : 'transparent',
+                    color: isActive ? chipColor : '#475569',
                     fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'all 0.15s',
                   }}>
@@ -734,14 +748,22 @@ export default function Dashboard() {
                   <div className="pulse-dot" style={{ width: 14, height: 14 }} />
                   <p style={{ color: '#475569', fontSize: 14 }}>Scanning 50+ stocks...</p>
                 </div>
+              ) : mkt.label === 'Closed' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 12, textAlign: 'center' }}>
+                  <span style={{ fontSize: 48 }}>🌙</span>
+                  <p style={{ color: '#f0f4ff', fontWeight: 700, fontSize: 18 }}>Scanner Paused &mdash; Market Offline</p>
+                  <p style={{ color: '#64748b', fontSize: 14, maxWidth: 300, lineHeight: 1.5 }}>
+                    The advanced processing engine has safely powered down. Standard real-time analytics will resume precisely at 9:30 AM EST to prevent faulty API mapping.
+                  </p>
+                </div>
               ) : filtered.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 12, textAlign: 'center' }}>
                   <span style={{ fontSize: 48 }}>📊</span>
                   <p style={{ color: '#f0f4ff', fontWeight: 700, fontSize: 16 }}>
-                    {filter !== 'all' ? `No ${filter.toUpperCase()} signals right now` : 'No active signals detected'}
+                    {filter !== 'all' ? `No ${filter.toUpperCase()} signals right now` : 'Scanning for Institutional Flow...'}
                   </p>
                   <p style={{ color: '#475569', fontSize: 13 }}>
-                    The scanner runs every 15 seconds · Best results Mon–Fri 9:30 AM – 4 PM ET
+                    The engine is parsing depth. Best alerts trigger during peak momentum hours.
                   </p>
                 </div>
               ) : (

@@ -128,7 +128,7 @@ export async function GET() {
           if (!afterHours && prev?.v > 0) rvol = parseFloat(((vol / minutesElapsed) / (prev.v / 390)).toFixed(2));
           else rvol = 1.0 + Math.abs(change) * 0.5; 
 
-          const { strategyName, signal, strength, reason, assetType, strikeLabel } = evaluateQuantitativeSetup(
+          const { strategyName, signal, strength, reason, assetType, strikeLabel, proMetrics } = evaluateQuantitativeSetup(
             t.ticker, price, change, rvol, vwap, high, low
           );
 
@@ -136,7 +136,7 @@ export async function GET() {
             ticker: t.ticker, price, change, changeDollar: t.todaysChange ?? (price - open),
             volume: vol, rvol, vwap, high, low, open,
             signal, signalStrength: strength, reason, isAfterHours: afterHours,
-            assetType, strategyName, strikeLabel
+            assetType, strategyName, strikeLabel, proMetrics
           };
         })
         .filter(r => r.price > 0);
@@ -149,11 +149,14 @@ export async function GET() {
     let activeSignals = 0;
     results = results.map(r => {
       if (r.signal === 'BUY' || r.signal === 'SELL') {
-        if (activeSignals >= 5) {
-          // Absolute cap of 5 signals per cycle to prevent flooding. Downgrade.
-          return { ...r, signal: 'WATCH', reason: r.reason + ' • [Downgraded due to signal limit]' };
+        if (activeSignals >= 3) {
+          // Absolute cap of 3 signals per cycle. Delete rest.
+          return { ...r, signal: 'NONE', reason: '' };
         }
         activeSignals++;
+      } else {
+        // Enforce destruction of any lingering WATCH states from old filters
+        if (r.signal !== 'NONE') return { ...r, signal: 'NONE' };
       }
       return r;
     });
