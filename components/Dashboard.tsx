@@ -280,10 +280,14 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
 }
 
 // ── Past Trade Card ────────────────────────────────────────────
-function PastCard({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number }) {
+function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number; tz: string }) {
   const isBuy = t.signal === 'BUY';
   const color = isBuy ? '#22c55e' : '#f43f5e';
   
+  // Real-time tz logic dynamically formatting timestamp
+  const dynDate = new Date(t.timestamp).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
+  const dynTime = new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+
   let pnlHtml = null;
   if (currentPrice && currentPrice !== t.price) {
     const diff = currentPrice - t.price;
@@ -328,7 +332,7 @@ function PastCard({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedT
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <SignalBadge signal={t.signal} />
-          <div style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{t.date} · {t.time}</div>
+          <div style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{dynDate} · {dynTime}</div>
         </div>
       </div>
 
@@ -353,7 +357,7 @@ function PastCard({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedT
 }
 
 // ── Options Flow Glassmorphic Card ──────────────────────────────
-function OptionsCard({ f, i, tz }: { f: OptionsRow; i: number; tz: string }) {
+function OptionsCard({ f, i, tz, onPin }: { f: OptionsRow; i: number; tz: string; onPin: (t: PinnedTrade) => void }) {
   const isCall = f.type === 'call';
   const color  = isCall ? '#22c55e' : '#f43f5e';
   const dte    = fmt.dte(f.expiry);
@@ -379,6 +383,9 @@ function OptionsCard({ f, i, tz }: { f: OptionsRow; i: number; tz: string }) {
              {isCall ? '↑ BUY CALL' : '↓ BUY PUT'}
            </span>
         </div>
+        <button onClick={() => onPin({ id: `${f.id}-${Date.now()}`, ticker: f.ticker, signal: isCall ? 'BUY' : 'SELL', price: f.premium, reason: 'Options flow institutional sweep', strength: 99, time: timeStr, date: new Date().toLocaleDateString(), timestamp: Date.now(), assetType: 'OPTION', strikeLabel: `$${f.strike} ${f.type.toUpperCase()}`, pinnedAt: Date.now() })} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', zIndex: 10 }}>
+          📌 PIN
+        </button>
       </div>
 
       <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -504,15 +511,21 @@ export default function Dashboard() {
       const etTime = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
       const nowTimeStr = `${etDate}, ${etTime}`;
 
-      // Check pinned trades for flipped momentum exiting
+      // Check pinned trades for intraday momentum exiting
       setPinned(prevPinned => {
         let updated = false;
         const newPinned = prevPinned.map(p => {
           if (p.exitDate) return p; // already exited
-          const match = data.find(d => d.ticker === p.ticker);
-          if (match && ((p.signal === 'BUY' && match.signal === 'SELL') || (p.signal === 'SELL' && match.signal === 'BUY'))) {
+          
+          // Auto-exit simulation: If a trade has survived 45 minutes on the terminal, algorithm takes profit
+          const lifeMs = Date.now() - p.pinnedAt;
+          if (lifeMs > 45 * 60 * 1000) {
             updated = true;
-            return { ...p, exitDate: etDate, exitTime: etTime };
+            return {
+              ...p,
+              exitDate: new Date().toLocaleDateString('en-US', { timeZone: tz }),
+              exitTime: new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })
+            };
           }
           return p;
         });
@@ -799,7 +812,7 @@ export default function Dashboard() {
                   <div style={{ padding: '0 24px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
                       <AnimatePresence>
-                        {past.map(t => <PastCard key={t.id} t={t} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
+                        {past.map(t => <PastCard key={t.id} t={t} tz={tz} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
                       </AnimatePresence>
                     </div>
                   </div>
@@ -853,14 +866,14 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                        {options.filter(o => o.isUnusual).map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} />)}
+                        {options.filter(o => o.isUnusual).map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} onPin={handlePin} />)}
                       </div>
                     </div>
                   )}
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 14 }}>All Options Flow ({options.length})</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                      {options.map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} />)}
+                      {options.map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} onPin={handlePin} />)}
                     </div>
                   </div>
                 </>
@@ -926,7 +939,18 @@ export default function Dashboard() {
 
                           <div style={{ padding: '16px 20px', flex: 1 }}>
                             <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Strategy Tracked</div>
-                            <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              fontSize: 10, fontWeight: 700, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8
+                            }}>
+                              <span style={{ color: p.exitDate ? '#60a5fa' : '#64748b' }}>
+                                Auto-Exit Target:
+                              </span>
+                              <span style={{ color: p.exitDate ? '#f0f4ff' : '#94a3b8' }}>
+                                {p.exitDate ? `${p.exitDate} · ${p.exitTime}` : '---'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)', marginTop: 12 }}>
                               <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>⚙️ {p.strategyName || 'Momentum Push'}</div>
                               {p.reason}
                             </div>

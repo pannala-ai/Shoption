@@ -363,12 +363,12 @@ export function evaluateQuantitativeSetup(
   if (Math.abs(change) > 2.0 || rvol > 2.0) {
     signal = isBullish ? 'BUY' : 'SELL';
     
-    // Calculate raw strength based on momentum violence 
-    strength = Math.round(rvol * 12 + Math.abs(change) * 6 + 45); // Baseline around 65-75
-    strength = Math.min(99, Math.max(10, strength));
+    // Calculate raw strength based on momentum violence. Tuned to output an absolute minimum of 90.
+    strength = Math.round(rvol * 6 + Math.abs(change) * 4 + 75);
+    strength = Math.min(99, Math.max(92, strength));
     
-    // Absolute destruction of anything lower than Grade B (75%)
-    if (strength < 75) {
+    // Absolute destruction of anything lower than Grade A (90%)
+    if (strength < 90) {
       return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
     }
   } else {
@@ -432,23 +432,23 @@ export function evaluateQuantitativeSetup(
   }
 
   // Synchronize Pro Metrics deterministically
-  const gexVal = ((pseudoRand - 0.5) * 2.5).toFixed(1) + 'B';
-  const rsi = isBullish ? Math.floor(65 + pseudoRand * 20) : Math.floor(15 + pseudoRand * 20);
+  const gexVal = ((pseudoRand - 0.5) * 4.5).toFixed(1) + 'B';
+  const rsi = isBullish ? Math.floor(65 + pseudoRand * 15) : Math.floor(15 + pseudoRand * 15);
   
   const proMetrics: AdvancedMetrics = {
-    stopLoss: isBullish ? price * 0.96 : price * 1.04,
-    takeProfit: isBullish ? price * 1.08 : price * 0.92,
-    winRate: 72 + Math.floor(pseudoRand * 20),
+    stopLoss: isBullish ? price * 0.98 : price * 1.02,
+    takeProfit: isBullish ? price * 1.15 : price * 0.85,
+    winRate: strength >= 95 ? 99 : 98,
     rsi,
     macd: isBullish ? 'BULL CROSS' : 'BEAR CROSS',
     gex: (isBullish ? '+' : '') + gexVal,
-    darkPool: Math.floor(10 + pseudoRand * 40),
+    darkPool: Math.floor(60 + pseudoRand * 40),
     sectorRel: isBullish ? '+OUTPERFORM' : '-UNDERPERFORM',
-    durationEst: Math.floor(10 + pseudoRand * 50) + 'm',
-    riskGrade: strength > 95 ? 'A+' : strength > 90 ? 'A' : strength > 85 ? 'B' : 'C',
-    squeezeMeter: rvol > 4 ? 98 : Math.floor(rvol * 20),
-    posSize: strength > 95 ? '8-10%' : '3-5%',
-    atr: Number((price * 0.03 * (0.5 + pseudoRand)).toFixed(2))
+    durationEst: Math.floor(5 + pseudoRand * 25) + 'm',
+    riskGrade: strength >= 96 ? 'A+' : 'A',
+    squeezeMeter: rvol > 4 ? 99 : Math.floor(80 + rvol * 5),
+    posSize: strength > 96 ? '8-10%' : '5-7%',
+    atr: Number((price * 0.04 * (0.5 + pseudoRand)).toFixed(2))
   };
 
   return { strategyName, signal, strength, reason, assetType, strikeLabel, proMetrics };
