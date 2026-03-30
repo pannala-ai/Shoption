@@ -38,6 +38,7 @@ interface OptionsRow {
   premium: number;
   spot: number;
   isGenerated?: boolean;
+  timestamp?: number;
 }
 
 interface PastTrade {
@@ -112,7 +113,7 @@ function StrengthBar({ value, signal }: { value: number; signal: string }) {
 }
 
 // ── Signal Card (main scanner card) ──────────────────────────
-function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
+function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin: (t: PinnedTrade) => void }) {
   const isBuy  = r.signal === 'BUY';
   const isSell = r.signal === 'SELL';
   const accentColor = isBuy ? '#22c55e' : isSell ? '#f43f5e' : r.signal === 'WATCH' ? '#f59e0b' : '#334155';
@@ -183,20 +184,15 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const saved = localStorage.getItem('shoption_pinned');
-                  const arr: PinnedTrade[] = saved ? JSON.parse(saved) : [];
-                  if (!arr.find(x => x.ticker === r.ticker && x.signal === r.signal)) {
-                    arr.unshift({
-                      id: `${r.ticker}-${Date.now()}`, ticker: r.ticker, signal: r.signal as 'BUY'|'SELL',
-                      price: r.price, reason: r.reason, strength: r.signalStrength,
-                      time: r.detectedAt?.split(' ')[1] + ' ' + r.detectedAt?.split(' ')[2],
-                      date: r.detectedAt?.split(',')[0] || '', timestamp: Date.now(),
-                      assetType: r.assetType, strategyName: r.strategyName, strikeLabel: r.strikeLabel,
-                      pinnedAt: Date.now()
-                    });
-                    localStorage.setItem('shoption_pinned', JSON.stringify(arr));
-                    window.dispatchEvent(new Event('storage')); // trigger update
-                  }
+                  onPin({
+                    id: `${r.ticker}-${Date.now()}`, ticker: r.ticker, signal: r.signal as 'BUY'|'SELL',
+                    price: r.price, reason: r.reason, strength: r.signalStrength,
+                    time: r.detectedAt?.split(', ')[1] || '',
+                    date: r.detectedAt?.split(', ')[0] || '',
+                    timestamp: Date.now(),
+                    assetType: r.assetType, strategyName: r.strategyName, strikeLabel: r.strikeLabel,
+                    pinnedAt: Date.now()
+                  });
                 }}
                 style={{ padding: '4px 8px', fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', border: 'none', borderRadius: 4, cursor: 'pointer' }}
               >
@@ -274,7 +270,7 @@ function SignalCard({ r, isNew }: { r: ScanResult; isNew: boolean }) {
 }
 
 // ── Past Trade Row ────────────────────────────────────────────
-function PastRow({ t, i, currentPrice }: { t: PastTrade; i: number; currentPrice?: number }) {
+function PastRow({ t, onPin, currentPrice }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number }) {
   const isBuy = t.signal === 'BUY';
   const color  = isBuy ? '#22c55e' : '#f43f5e';
   
@@ -294,7 +290,6 @@ function PastRow({ t, i, currentPrice }: { t: PastTrade; i: number; currentPrice
     <motion.div
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: i * 0.04 }}
       style={{
         display: 'grid',
         gridTemplateColumns: '8px 200px 1fr 130px 40px',
@@ -327,13 +322,7 @@ function PastRow({ t, i, currentPrice }: { t: PastTrade; i: number; currentPrice
       <div style={{ paddingLeft: 10 }}>
         <button
           onClick={() => {
-            const saved = localStorage.getItem('shoption_pinned');
-            const arr: PinnedTrade[] = saved ? JSON.parse(saved) : [];
-            if (!arr.find(x => x.id === t.id)) {
-              arr.unshift({ ...t, pinnedAt: Date.now() });
-              localStorage.setItem('shoption_pinned', JSON.stringify(arr));
-              window.dispatchEvent(new Event('storage'));
-            }
+            onPin({ ...t, pinnedAt: Date.now() });
           }}
           style={{ padding: '6px', fontSize: 12, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', transition: 'background 0.2s' }}
           title="Pin Trade"
@@ -346,10 +335,11 @@ function PastRow({ t, i, currentPrice }: { t: PastTrade; i: number; currentPrice
 }
 
 // ── Options Flow Card ─────────────────────────────────────────
-function OptionsCard({ f, i }: { f: OptionsRow; i: number }) {
+function OptionsCard({ f, i, tz }: { f: OptionsRow; i: number; tz: string }) {
   const isCall = f.type === 'call';
   const color  = isCall ? '#22c55e' : '#f43f5e';
   const dte    = fmt.dte(f.expiry);
+  const timeStr = new Date(f.timestamp || Date.now()).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -394,6 +384,10 @@ function OptionsCard({ f, i }: { f: OptionsRow; i: number }) {
         <div>
           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Volume</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f4ff' }}>{fmt.vol(f.volume)}</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Detected</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8' }}>{timeStr}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 2 }}>Vol/OI</div>
@@ -469,6 +463,16 @@ export default function Dashboard() {
     window.addEventListener('storage', loadLocals);
     return () => window.removeEventListener('storage', loadLocals);
   }, [loadLocals]);
+
+  const handlePin = useCallback((t: PinnedTrade) => {
+    setPinned(prev => {
+      // Ignore if already pinned
+      if (prev.find(x => x.id === t.id || (x.ticker === t.ticker && x.signal === t.signal))) return prev;
+      const arr = [t, ...prev];
+      try { localStorage.setItem('shoption_pinned', JSON.stringify(arr)); } catch {}
+      return arr;
+    });
+  }, []);
 
   // Scanner fetch
   const fetchScan = useCallback(async () => {
@@ -743,7 +747,7 @@ export default function Dashboard() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
                   <AnimatePresence>
-                    {filtered.map(r => <SignalCard key={r.ticker} r={r} isNew={newTickers.has(r.ticker)} />)}
+                    {filtered.map(r => <SignalCard key={r.ticker} r={r} isNew={newTickers.has(r.ticker)} onPin={handlePin} />)}
                   </AnimatePresence>
                 </div>
               )}
@@ -788,7 +792,7 @@ export default function Dashboard() {
                       <span /><span>Stock</span><span>Signal Reason</span><span style={{ textAlign: 'right' }}>Time & Strength</span><span>Action</span>
                     </div>
                     <AnimatePresence>
-                      {past.map((t, i) => <PastRow key={t.id} t={t} i={i} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
+                      {past.map(t => <PastRow key={t.id} t={t} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
                     </AnimatePresence>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 24 }}>
@@ -841,14 +845,14 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                        {options.filter(o => o.isUnusual).map((f, i) => <OptionsCard key={f.id} f={f} i={i} />)}
+                        {options.filter(o => o.isUnusual).map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} />)}
                       </div>
                     </div>
                   )}
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 14 }}>All Options Flow ({options.length})</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                      {options.map((f, i) => <OptionsCard key={f.id} f={f} i={i} />)}
+                      {options.map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} />)}
                     </div>
                   </div>
                 </>
