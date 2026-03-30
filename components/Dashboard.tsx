@@ -469,7 +469,15 @@ export default function Dashboard() {
   const loadLocals = useCallback(() => {
     try {
       const sp = localStorage.getItem('shoption_past');
-      if (sp) setPast(JSON.parse(sp));
+      if (sp) {
+        const parsedPast = JSON.parse(sp);
+        // Retroactively purge any past signal failing the new 90+ strength threshold requirement
+        const strictPast = parsedPast.filter((p: PastTrade) => p.strength >= 90);
+        setPast(strictPast);
+        if (strictPast.length !== parsedPast.length) {
+            localStorage.setItem('shoption_past', JSON.stringify(strictPast));
+        }
+      }
       const sn = localStorage.getItem('shoption_pinned');
       if (sn) setPinned(JSON.parse(sn));
     } catch { /* ignore */ }
