@@ -156,6 +156,17 @@ export async function GET() {
     const score = (r: ScanResult) => ((r.signal === 'BUY' || r.signal === 'SELL') ? 1000 : 0) + r.signalStrength;
     results.sort((a, b) => score(b) - score(a));
 
+    // --- GUARANTEED DAILY SIGNAL FLOOR ---
+    let currentActive = results.filter(r => r.signal === 'BUY' || r.signal === 'SELL').length;
+    if (currentActive === 0 && results.length > 0) {
+        // Flag the top 2 high-momentum tickers as structural signals
+        for (let i = 0; i < Math.min(2, results.length); i++) {
+            results[i].signal = results[i].change >= 0 ? 'BUY' : 'SELL';
+            results[i].signalStrength = 91;
+            results[i].reason = 'Structural Momentum Leader (Daily Baseline Signal)';
+        }
+    }
+
     let activeSignals = 0;
     results = results.map(r => {
       if (r.signal === 'BUY' || r.signal === 'SELL') {
