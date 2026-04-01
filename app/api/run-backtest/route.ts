@@ -81,19 +81,21 @@ export async function POST() {
             }
             const vSMA = prevVolSum / 20;
 
-            // Step 2: Liquidity Check (>20 contracts)
-            if (bar.v <= 20) continue;
+            // Step 2: Liquidity Check (Reduced to >10 to capture valid illiquid breakouts)
+            if (bar.v <= 10) continue;
             
-            // Step 3: Relative Volume (RVOL) > 2.5x
-            if (bar.v <= 2.5 * vSMA) continue;
+            // Step 3: Relative Volume (RVOL) > 1.5x (Down from 2.5x to capture regular momentum)
+            if (bar.v <= 1.5 * vSMA) continue;
             
-            // Step 4: Price Action - Marubozu / Strong Trend
+            // Step 4: Price Action - Bullish Strength
             const range = bar.h - bar.l;
             if (range <= 0) continue; 
             
-            // Close must be in the top 10% of the bar's total range
-            const isTop10Percent = bar.c >= bar.h - (range * 0.10);
-            if (!isTop10Percent) continue;
+            // Must be a green structural candle and close in the upper 40% of its range (abandoning strict 10% Marubozu limit)
+            const isGreen = bar.c > bar.o;
+            const holdsTopRange = bar.c >= bar.l + (range * 0.60);
+            
+            if (!isGreen || !holdsTopRange) continue;
 
             // === SIGNAL TRIGGERED ===
             totalSignals++;
@@ -144,7 +146,7 @@ export async function POST() {
                maxGainPct,
                hitTarget ? 1 : 0,
                99, 
-               'Anomalous Momentum Breakout (RVOL >2.5, Marubozu)'
+               'Anomalous Momentum Breakout (RVOL > 1.5, Trend Control)'
             );
 
             i += 15; // Anti-stutter
