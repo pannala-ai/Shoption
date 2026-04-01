@@ -7,10 +7,9 @@ const BACKTEST_TICKERS = ['NVDA', 'SPY', 'QQQ', 'AMD', 'TSLA'];
 export async function POST() {
   try {
     const fromDate = new Date();
-    // Safe Trading Day Logic: Bypass weekends.
-    const dayOffset = fromDate.getDay() === 1 ? 3 : fromDate.getDay() === 0 ? 2 : 1;
+    // Live Options Sweep: If weekend, bounce strictly to Friday, otherwise strictly scan TODAY's live flows. 
+    const dayOffset = fromDate.getDay() === 0 ? 2 : fromDate.getDay() === 6 ? 1 : 0;
     fromDate.setDate(fromDate.getDate() - dayOffset);
-    const dateStr = fromDate.toISOString().split('T')[0];
 
     // DB Initialization
     try {
@@ -49,19 +48,52 @@ export async function POST() {
     let globalSumVol = 0;
     let globalMaxVol = 0;
 
+    let dateStr = '';
+    let bars: any[] = [];
+    let optionTicker = '';
+    let topContract: any = null;
+
     for (const baseTicker of BACKTEST_TICKERS) {
       try {
         const chainRes = await getOptionsChain(baseTicker);
         if (!chainRes || !chainRes.results || chainRes.results.length === 0) continue;
 
-        const topContract = chainRes.results.sort((a,b) => (b.day?.volume || 0) - (a.day?.volume || 0))[0];
-        const optionTicker = topContract.details.ticker;
+        topContract = chainRes.results.sort((a,b) => (b.day?.volume || 0) - (a.day?.volume || 0))[0];
+        optionTicker = topContract.details.ticker;
 
-        const aggRes = await getAggBars(optionTicker, 1, 'minute', dateStr, dateStr);
-        const bars = aggRes.results || [];
+        // Recursive Date Fallback: Try Today, then Yesterday, then Friday
+        const findBars = async () => {
+          const datesToTry = [];
+          const now = new Date();
+          
+          // Try Today
+          datesToTry.push(now.toISOString().split('T')[0]);
+          
+          // Try Yesterday (or Friday if today is Monday)
+          const yesterday = new Date(now);
+          yesterday.setDate(now.getDate() - (now.getDay() === 1 ? 3 : 1));
+          datesToTry.push(yesterday.toISOString().split('T')[0]);
+          
+          // Try Last Friday absolute
+          const friday = new Date(now);
+          friday.setDate(now.getDate() - (now.getDay() + 2) % 7);
+          datesToTry.push(friday.toISOString().split('T')[0]);
+
+          for (const d of datesToTry) {
+            const res = await getAggBars(optionTicker, 1, 'minute', d, d);
+            if (res.results && res.results.length > 20) {
+              return { bars: res.results, date: d };
+            }
+          }
+          return { bars: [], date: '' };
+        };
+
+        const barData = await findBars();
+        bars = barData.bars;
+        dateStr = barData.date;
         
         if (bars.length < 21) {
-            continue; // Need at least 21 bars to calculate a 20-bar trailing SMA safely
+            continue; 
         }
 
         const barsLen = bars.length;

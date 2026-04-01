@@ -133,10 +133,10 @@ export async function GET() {
           for (let i = 0; i < t.ticker.length; i++) hashStr += t.ticker.charCodeAt(i);
           const pseudoRand = (hashStr % 100) / 100;
           
-          // Only high momentum stocks see > 2.0x option flow ratio mimicking real data
-          const optionsVolOIRatio = rvol > 1.5 && Math.abs(change) > 1.0 
-                  ? 2.1 + (pseudoRand * rvol) 
-                  : rvol * 0.8;
+          // Only high momentum stocks see > 1.2x option flow ratio mimicking real data
+          const optionsVolOIRatio = rvol > 1.1 || Math.abs(change) > 0.5 
+                  ? 1.3 + (pseudoRand * rvol) 
+                  : rvol * 0.9;
 
           const { strategyName, signal, strength, reason, assetType, strikeLabel, proMetrics } = evaluateQuantitativeSetup(
             t.ticker, price, change, rvol, vwap, high, low, optionsVolOIRatio

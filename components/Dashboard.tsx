@@ -451,13 +451,15 @@ function OptionsCard({ f, i, tz, onPin }: { f: OptionsRow; i: number; tz: string
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'testing'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'testing'|'past'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [backtests, setBacktests] = useState<any[]>([]);
+  const [pastSignals, setPastSignals] = useState<any[]>([]);
   const [runningBacktest, setRunningBacktest] = useState(false);
   const [hasRunBacktest, setHasRunBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
+  const [pastLoading, setPastLoading] = useState(true);
   const [optLoading, setOptLoad]  = useState(true);
   const [scanning,  setScanning]  = useState(false);
   const [stats,     setStats]     = useState({ total: 0, buys: 0, sells: 0 });
@@ -545,6 +547,17 @@ export default function Dashboard() {
     } catch (e) { console.error('[backtests]', e); }
   }, []);
 
+  const fetchPastSignals = useCallback(async () => {
+    setPastLoading(true);
+    try {
+      const r = await fetch('/api/past-signals');
+      if (!r.ok) return;
+      const d = await r.json();
+      setPastSignals(d.signals || []);
+    } catch (e) { console.error('[past-signals]', e); }
+    finally { setPastLoading(false); }
+  }, []);
+
   const runHistoricalSimulation = async () => {
     setRunningBacktest(true);
     setHasRunBacktest(false);
@@ -560,7 +573,10 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { fetchBacktests(); }, [fetchBacktests]);
+  useEffect(() => { 
+    fetchBacktests(); 
+    fetchPastSignals();
+  }, [fetchBacktests, fetchPastSignals]);
 
   useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
   // Orevix exclusively targets verified volume breaks, no legacy options tape needed
@@ -641,7 +657,8 @@ export default function Dashboard() {
       }}>
         {([
           { id: 'scanner', icon: '📡', label: 'Live Signals',  badge: stats.buys + stats.sells },
-          { id: 'testing', icon: '🧪', label: 'Testing Strategy', badge: 0 },
+          { id: 'testing', icon: '🧪', label: 'Backtester', badge: 0 },
+          { id: 'past',    icon: '📚', label: 'Past Signals', badge: pastSignals.length },
         ] as { id: typeof tab; icon: string; label: string; badge: number }[]).map(({ id, icon, label, badge }) => {
           const active = tab === id;
           return (
@@ -852,6 +869,80 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* PAST SIGNALS TAB */}
+          {tab === 'past' && (
+            <motion.div key="past" style={{ height: '100%', overflowY: 'auto', padding: '24px' }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 900, color: '#f8fafc', marginBottom: 6 }}>Trailing 7-Day History</h2>
+                <p style={{ color: '#64748b', fontSize: 13 }}>Aggregated institutional alerts from previous trading sessions.</p>
+              </div>
+
+              {pastLoading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-40 rounded-xl bg-white/[0.02] border border-white/[0.05] relative overflow-hidden animate-pulse">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-[shimmer_2s_infinite]" />
+                    </div>
+                  ))}
+                </div>
+              ) : pastSignals.length === 0 ? (
+                <div style={{ height: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                   No historical signals found for the past week.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                  {pastSignals.map((s: any) => (
+                    <motion.div
+                      key={s.id}
+                      whileHover={{ y: -2 }}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.4) 100%)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 16,
+                        padding: 20,
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div>
+                           <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{s.ticker}</span>
+                           <div style={{ fontSize: 11, color: '#64748b' }}>{s.entryDate}</div>
+                        </div>
+                        <span style={{ 
+                          padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800,
+                          background: s.signal === 'BUY' ? 'rgba(34,197,94,0.1)' : 'rgba(244,63,94,0.1)',
+                          color: s.signal === 'BUY' ? '#22c55e' : '#f43f5e',
+                          border: `1px solid ${s.signal === 'BUY' ? '#22c55e44' : '#f43f5e44'}`
+                        }}>
+                          {s.signal}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
+                           <div style={{ fontSize: 10, color: '#4e5d73' }}>ENTRY</div>
+                           <div style={{ fontSize: 14, fontWeight: 700 }}>${s.entryPremium.toFixed(2)}</div>
+                        </div>
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
+                           <div style={{ fontSize: 10, color: '#4e5d73' }}>PEAK</div>
+                           <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e' }}>${s.peakPremium.toFixed(2)}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <span style={{ fontSize: 12, fontWeight: 800, color: s.maxGainPct >= 10 ? '#22c55e' : '#64748b' }}>
+                           MAX GAIN: +{s.maxGainPct.toFixed(1)}%
+                         </span>
+                         <span style={{ fontSize: 10, color: '#4e5d73' }}>STRENGTH: {s.strength}%</span>
+                      </div>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </motion.div>

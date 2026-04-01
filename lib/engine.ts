@@ -361,12 +361,12 @@ export function evaluateQuantitativeSetup(
   let signal: SignalType = 'NONE';
   let strength = 0;
 
-  // Real institutional trigger parameters
-  if (optionsVolOIRatio > 2.0 && isValidVwapCross) {
+  // Real institutional trigger parameters (Simplified for higher frequency)
+  if (optionsVolOIRatio > 1.2 && isValidVwapCross) {
     signal = isBullishVwapCross ? 'BUY' : 'SELL';
     
     // Calculate synthetic grade strictly off exact structural momentum triggers (must scale 90+)
-    strength = Math.round(90 + (optionsVolOIRatio - 2.0) * 2 + Math.abs(change) * 2);
+    strength = Math.round(90 + (optionsVolOIRatio - 1.2) * 5 + Math.abs(change) * 2);
     strength = Math.min(99, Math.max(90, strength));
   } else {
     // Drop sub-par setups directly to NONE
