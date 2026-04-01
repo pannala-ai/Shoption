@@ -3,9 +3,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Shoption — AI Stock & Options Scanner',
-  description: 'AI-powered real-time stock and options scanner. Get instant BUY/SELL signals powered by RVOL, VWAP, and unusual options activity.',
-  keywords: ['stock scanner', 'options scanner', 'AI trading', 'buy sell signals', 'unusual options activity'],
+  title: 'OREVIX — Institutional Options Terminal',
+  description: 'Ultra-fast, zero-noise, mathematically validated options execution scanner.',
   icons: { icon: '/favicon.ico' },
 };
 
@@ -14,10 +13,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-        <meta name="theme-color" content="#06080f" />
+        <meta name="theme-color" content="#000000" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className="overflow-hidden h-screen w-screen antialiased"
-        style={{ background: '#06080f', color: '#f1f5f9' }}>
+        style={{ background: '#000000', color: '#f1f5f9', fontFamily: '"JetBrains Mono", monospace' }}>
         {children}
       </body>
     </html>

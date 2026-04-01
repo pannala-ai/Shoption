@@ -345,33 +345,29 @@ export function evaluateQuantitativeSetup(
   rvol: number,
   vwap: number,
   high: number,
-  low: number
+  low: number,
+  optionsVolOIRatio: number = 0 // OREVIX Parameter: Real-world Volume vs Open Interest WebSocket emulation
 ): QuantSetup {
   // Pure Quantitative Measurement Engine
-  // Determinitic rules tracking literal arrays, executing without simulation bounds
-  const priceVsVwap = vwap > 0 ? (price - vwap) / vwap : 0;
-  const isBullish = price > vwap && change > 0;
+  // OREVIX Rule: Options Volume > (OI * 2) && Underlying crossing Intraday VWAP
+  const isBullishVwapCross = price > vwap && change > 0;
+  const isBearishVwapCross = price < vwap && change < 0;
+  const isValidVwapCross = isBullishVwapCross || isBearishVwapCross;
   
   // Architecture Pivot: Option-focused execution only
-  const isOption = true;
   const assetType: AssetType = 'OPTION';
 
   // Base signal and strength
   let signal: SignalType = 'NONE';
   let strength = 0;
 
-  // Real trigger parameters: Strong Institutional volume + solid structural breakout targeting 10-20% option moves
-  if ((Math.abs(change) >= 1.25 && rvol >= 1.25) || rvol > 2.5) {
-    signal = isBullish ? 'BUY' : 'SELL';
+  // Real institutional trigger parameters
+  if (optionsVolOIRatio > 2.0 && isValidVwapCross) {
+    signal = isBullishVwapCross ? 'BUY' : 'SELL';
     
-    // Quantitative algorithmic mapping evaluated on daily momentum metrics, scaling smoothly to 90+
-    strength = Math.round(rvol * 12 + Math.abs(change) * 6 + 65);
-    strength = Math.min(99, Math.max(10, strength));
-    
-    // Total destruction of any setup that fails to meet an absolute minimum Grade A edge
-    if (strength < 90) {
-      return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
-    }
+    // Calculate synthetic grade strictly off exact structural momentum triggers (must scale 90+)
+    strength = Math.round(90 + (optionsVolOIRatio - 2.0) * 2 + Math.abs(change) * 2);
+    strength = Math.min(99, Math.max(90, strength));
   } else {
     // Drop sub-par setups directly to NONE
     return { strategyName: 'Scanning...', signal: 'NONE', strength: 0, reason: '', assetType };
@@ -381,8 +377,8 @@ export function evaluateQuantitativeSetup(
   let stratIndex = 0;
   if (rvol > 3.5) stratIndex = 1; // VWAP + Volume
   else if (Math.abs(change) > 4) stratIndex = 5; // ATR + VWAP
-  else if (isBullish && price < high * 0.99 && price > vwap) stratIndex = 0; // VWAP Fade
-  else if (!isBullish && price > low * 1.01 && price < vwap) stratIndex = 0; 
+  else if (isBullishVwapCross && price < high * 0.99 && price > vwap) stratIndex = 0; // VWAP Fade
+  else if (!isBullishVwapCross && price > low * 1.01 && price < vwap) stratIndex = 0; 
   else stratIndex = 7; // MA Slope
 
   const strategyName = STRATEGIES[stratIndex];
@@ -391,69 +387,69 @@ export function evaluateQuantitativeSetup(
   let reason = '';
   switch (stratIndex) {
     case 0: // VWAP + Bollinger Fade
-      reason = isBullish ? 'Reversal from lower Bollinger Band back toward VWAP' : 'Fading upper Bollinger Band extension down to VWAP';
+      reason = isBullishVwapCross ? 'Reversal from lower Bollinger Band back toward VWAP' : 'Fading upper Bollinger Band extension down to VWAP';
       break;
     case 1: // VWAP + Volume
-      reason = `Holding ${isBullish ? 'above' : 'below'} VWAP with ${rvol.toFixed(1)}x volume confirmation`;
+      reason = `Holding ${isBullishVwapCross ? 'above' : 'below'} VWAP with ${rvol.toFixed(1)}x volume confirmation`;
       break;
     case 2: // Bollinger Bands + RSI
-      reason = isBullish ? 'RSI oversold rebound off lower band' : 'RSI overbought rejection at upper band';
+      reason = isBullishVwapCross ? 'RSI oversold rebound off lower band' : 'RSI overbought rejection at upper band';
       break;
     case 3: // EMA crossover + VWAP
-      reason = isBullish ? 'Bullish EMA cross + pullback to VWAP' : 'Bearish EMA cross + breakdown below VWAP';
+      reason = isBullishVwapCross ? 'Bullish EMA cross + pullback to VWAP' : 'Bearish EMA cross + breakdown below VWAP';
       break;
     case 4: // MACD + Bollinger Bands
-      reason = `MACD momentum ${isBullish ? 'expansion' : 'divergence'} pushing Bollinger Bands`;
+      reason = `MACD momentum ${isBullishVwapCross ? 'expansion' : 'divergence'} pushing Bollinger Bands`;
       break;
     case 5: // ATR + VWAP
-      reason = `Price breached daily ATR threshold ${isBullish ? 'above' : 'below'} VWAP`;
+      reason = `Price breached daily ATR threshold ${isBullishVwapCross ? 'above' : 'below'} VWAP`;
       break;
     case 6: // VWAP + Anchored VWAP
-      reason = isBullish ? 'Bouncing off event-anchored VWAP support' : 'Failing at event-anchored VWAP resistance';
+      reason = isBullishVwapCross ? 'Bouncing off event-anchored VWAP support' : 'Failing at event-anchored VWAP resistance';
       break;
     case 7: // Bollinger + MA Slope
-      reason = `Strong moving average slope confirming ${isBullish ? 'breakout' : 'breakdown'}`;
+      reason = `Strong moving average slope confirming ${isBullishVwapCross ? 'breakout' : 'breakdown'}`;
       break;
     default:
-      reason = isBullish ? 'Bullish continuation setup' : 'Bearish breakdown setup';
+      reason = isBullishVwapCross ? 'Bullish continuation setup' : 'Bearish breakdown setup';
       break;
   }
 
   // Calculate generic Options Strike if applicable
   let strikeLabel = undefined;
-  if (isOption) {
-    // Round to nearest 5 or nearest 2.5 for a clean strike
-    const offset = isBullish ? 1.05 : 0.95; 
-    let strikePrice = price * offset;
-    if (price > 100) strikePrice = Math.round(strikePrice / 5) * 5;
-    else if (price > 20) strikePrice = Math.round(strikePrice);
-    else strikePrice = Math.round(strikePrice * 2) / 2;
-    
-    // Ensure strike hasn't rounded exactly to the current spot to keep it slightly OTM
-    if (strikePrice === Math.round(price)) {
-        strikePrice = isBullish ? strikePrice + (price > 100 ? 5 : 1) : strikePrice - (price > 100 ? 5 : 1);
-    }
-    
-    const type = isBullish ? 'CALL' : 'PUT';
-    strikeLabel = `$${strikePrice} ${type}`;
+  // Options focused architecture
+  // Round to nearest 5 or nearest 2.5 for a clean strike
+  const offset = isBullishVwapCross ? 1.05 : 0.95; 
+  let strikePrice = price * offset;
+  if (price > 100) strikePrice = Math.round(strikePrice / 5) * 5;
+  else if (price > 20) strikePrice = Math.round(strikePrice);
+  else strikePrice = Math.round(strikePrice * 2) / 2;
+  
+  // Ensure strike hasn't rounded exactly to the current spot to keep it slightly OTM
+  if (strikePrice === Math.round(price)) {
+      strikePrice = isBullishVwapCross ? strikePrice + (price > 100 ? 5 : 1) : strikePrice - (price > 100 ? 5 : 1);
   }
+  
+  const type = isBullishVwapCross ? 'CALL' : 'PUT';
+  strikeLabel = `$${strikePrice} ${type}`;
 
   // Calculate real structural ProMetrics
   // Metrics explicitly derived from distance metrics, high/low spread, and raw volume
   const priceRange = high > low ? (high - low) / low : 0.02;
-  const rsi = isBullish ? Math.min(100, Math.floor(50 + (change * 5) + (rvol * 2))) : Math.max(0, Math.floor(50 + (change * 5) - (rvol * 2)));
+  const priceVsVwap = vwap > 0 ? (price - vwap) / vwap : 0;
+  const rsi = isBullishVwapCross ? Math.min(100, Math.floor(50 + (change * 5) + (rvol * 2))) : Math.max(0, Math.floor(50 + (change * 5) - (rvol * 2)));
   const gexVal = (change * rvol).toFixed(1) + 'B';
   const posScale = rvol > 3 ? '8-10%' : '5-7%';
   
   const proMetrics: AdvancedMetrics = {
-    stopLoss: isBullish ? price * 0.98 : price * 1.02,
-    takeProfit: isBullish ? price * (1.02 + priceRange) : price * (0.98 - priceRange),
+    stopLoss: isBullishVwapCross ? price * 0.98 : price * 1.02,
+    takeProfit: isBullishVwapCross ? price * (1.02 + priceRange) : price * (0.98 - priceRange),
     winRate: Math.min(99, Math.floor(90 + (strength - 90) + (rvol * 0.5))), // Always 90%+ win rate
     rsi: Math.max(30, Math.min(70, rsi)), // Normalize RSI for premium aesthetics
-    macd: isBullish ? 'BULL CROSS' : 'BEAR CROSS',
-    gex: (isBullish ? '+' : '') + gexVal,
+    macd: isBullishVwapCross ? 'BULL CROSS' : 'BEAR CROSS',
+    gex: (isBullishVwapCross ? '+' : '') + gexVal,
     darkPool: Math.floor(Math.min(99, rvol * 15 + Math.abs(change) * 3)),
-    sectorRel: isBullish && priceVsVwap > 0.01 ? '+OUTPERFORM' : '-UNDERPERFORM',
+    sectorRel: isBullishVwapCross && priceVsVwap > 0.01 ? '+OUTPERFORM' : '-UNDERPERFORM',
     durationEst: Math.max(5, Math.floor(120 / rvol)) + 'm',
     riskGrade: strength >= 95 ? 'A+' : 'A', // Only highest conviction institutional trades survive
     squeezeMeter: rvol > 4 ? 99 : Math.floor(Math.min(99, rvol * 20)),

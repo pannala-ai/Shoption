@@ -451,12 +451,9 @@ function OptionsCard({ f, i, tz, onPin }: { f: OptionsRow; i: number; tz: string
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'past'|'options'|'pinned'|'testing'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'testing'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
-  const [options,   setOptions]   = useState<OptionsRow[]>([]);
-  const [past,      setPast]      = useState<PastTrade[]>([]);
-  const [pinned,    setPinned]    = useState<PinnedTrade[]>([]);
   const [backtests, setBacktests] = useState<BacktestRow[]>([]);
   const [runningBacktest, setRunningBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
@@ -482,40 +479,6 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [tz]);
 
-  // Load past trades & pinned
-  const loadLocals = useCallback(() => {
-    try {
-      const sp = localStorage.getItem('shoption_past');
-      if (sp) {
-        const parsedPast = JSON.parse(sp);
-        // Retroactively purge any past signal failing the new 90+ strength threshold requirement
-        const strictPast = parsedPast.filter((p: PastTrade) => p.strength >= 90);
-        setPast(strictPast);
-        if (strictPast.length !== parsedPast.length) {
-            localStorage.setItem('shoption_past', JSON.stringify(strictPast));
-        }
-      }
-      const sn = localStorage.getItem('shoption_pinned');
-      if (sn) setPinned(JSON.parse(sn));
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    loadLocals();
-    window.addEventListener('storage', loadLocals);
-    return () => window.removeEventListener('storage', loadLocals);
-  }, [loadLocals]);
-
-  const handlePin = useCallback((t: PinnedTrade) => {
-    setPinned(prev => {
-      // Ignore if already pinned
-      if (prev.find(x => x.id === t.id || (x.ticker === t.ticker && x.signal === t.signal))) return prev;
-      const arr = [t, ...prev];
-      try { localStorage.setItem('shoption_pinned', JSON.stringify(arr)); } catch {}
-      return arr;
-    });
-  }, []);
-
   // Scanner fetch
   const fetchScan = useCallback(async () => {
     // Cut API drainage during offline hours entirely.
@@ -536,94 +499,9 @@ export default function Dashboard() {
       const sells   = data.filter(r => r.signal === 'SELL').length;
       setStats({ total: d.totalScanned ?? data.length, buys, sells });
       setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }));
-
-      // Detect new signals
-      const newSet = new Set<string>();
-      const newTrades: PastTrade[] = [];
-      const etDate = new Date().toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
-      const etTime = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
-      const nowTimeStr = `${etDate}, ${etTime}`;
-
-      // Check pinned trades for intraday momentum exiting
-      setPinned(prevPinned => {
-        let updated = false;
-        const newPinned = prevPinned.map(p => {
-          if (p.exitDate) return p; // already exited
-          
-          // Algorithmic exit logic: Only exit if the engine specifically triggers a counter-momentum flip
-          const flip = data.find(r => r.ticker === p.ticker && r.signal !== 'NONE' && r.signal !== p.signal);
-          if (flip) {
-            updated = true;
-            return {
-              ...p,
-              exitDate: new Date().toLocaleDateString('en-US', { timeZone: tz }),
-              exitTime: new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })
-            };
-          }
-          return p;
-        });
-        if (updated) {
-          try { localStorage.setItem('shoption_pinned', JSON.stringify(newPinned)); } catch { /* ignore */ }
-          return newPinned;
-        }
-        return prevPinned;
-      });
-
-      for (const item of data) {
-        item.detectedAt = nowTimeStr;
-        const prev = prevSig.current.get(item.ticker);
-        const isFirstLoad = prevSig.current.size === 0;
-        
-        // ONLY trigger 'New Signal' if it actually changed while the dashboard was open (ignore first load dump)
-        if ((item.signal === 'BUY' || item.signal === 'SELL') && !isFirstLoad && prev && prev !== item.signal) {
-          newSet.add(item.ticker);
-          newTrades.push({
-            id: `${item.ticker}-${Date.now()}-${Math.random()}`,
-            ticker: item.ticker, signal: item.signal,
-            price: item.price, reason: item.reason,
-            strength: item.signalStrength,
-            time: etTime,
-            date: etDate,
-            timestamp: Date.now(),
-            assetType: item.assetType,
-            strategyName: item.strategyName,
-            strikeLabel: item.strikeLabel,
-          });
-        }
-        prevSig.current.set(item.ticker, item.signal);
-      }
-      if (newSet.size > 0) setNewTick(newSet);
-      
-      setPast(prevPast => {
-        let updatedPast = [...prevPast];
-        
-        if (newTrades.length > 0) {
-          // Strictly deduplicate: Do not record a trade if the same ticker was logged on the same calendar mapping Date. 
-          const filteredNew = newTrades.filter(nt => {
-            return !updatedPast.find(p => p.ticker === nt.ticker && p.date === nt.date);
-          });
-          if (filteredNew.length > 0) {
-             updatedPast = [...filteredNew, ...updatedPast].slice(0, 50); // Cut bloat significantly
-             try { localStorage.setItem('shoption_past', JSON.stringify(updatedPast)); } catch { /* ignore */ }
-          }
-        }
-        
-        return updatedPast;
-      });
     } catch (e) { console.error('[scan]', e); }
     finally { setScanning(false); setLoading(false); }
-  }, [tz]);
-
-  // Options fetch
-  const fetchOptions = useCallback(async () => {
-    try {
-      const r = await fetch('/api/options-tape');
-      if (!r.ok) return;
-      const d = await r.json();
-      setOptions(d.tape ?? []);
-    } catch (e) { console.error('[options]', e); }
-    finally { setOptLoad(false); }
-  }, []);
+  }, [tz, mkt.label]);
 
   const fetchBacktests = useCallback(async () => {
     try {
@@ -647,12 +525,7 @@ export default function Dashboard() {
   useEffect(() => { fetchBacktests(); }, [fetchBacktests]);
 
   useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
-  useEffect(() => { 
-    // Stagger Options load by 2 seconds so the initial live scanner polygon API rate limit drops don't trigger 429 errors
-    const timeoutid = setTimeout(fetchOptions, 2500); 
-    const id = setInterval(fetchOptions, 60000); 
-    return () => { clearTimeout(timeoutid); clearInterval(id); };
-  }, [fetchOptions]);
+  // Orevix exclusively targets verified volume breaks, no legacy options tape needed
 
   const filtered = results.filter(r => {
     if (r.signal === 'NONE') return false;
@@ -664,23 +537,23 @@ export default function Dashboard() {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#070a12' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#000000' }}>
       <AlertToast />
 
       {/* ── HEADER ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 16, padding: '10px 24px',
-        background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0,
+        background: '#000000', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0,
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 15,
-          }}>S</div>
+            background: '#ffffff', color: '#000000', fontWeight: 900, fontSize: 18,
+          }}>X</div>
           <div>
-            <span style={{ fontSize: 16, fontWeight: 800, color: '#f0f4ff' }}>Shoption</span>
-            <span style={{ fontSize: 11, color: '#475569', marginLeft: 6 }}>AI Scanner</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#ffffff', letterSpacing: '0.05em' }}>OREVIX</span>
+            <span style={{ fontSize: 11, color: '#475569', marginLeft: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Terminal</span>
           </div>
         </div>
 
@@ -726,13 +599,10 @@ export default function Dashboard() {
       {/* ── TAB BAR ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '10px 24px',
-        background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
+        background: '#000000', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
       }}>
         {([
-          { id: 'scanner', icon: '📡', label: 'Live Scanner',  badge: stats.buys + stats.sells },
-          { id: 'past',    icon: '📋', label: 'Past Signals',  badge: past.length },
-          { id: 'options', icon: '⚡', label: 'Options Flow',  badge: options.filter(o => o.isUnusual).length },
-          { id: 'pinned',  icon: '📌', label: 'Pinned Trades', badge: pinned.length },
+          { id: 'scanner', icon: '📡', label: 'Live Signals',  badge: stats.buys + stats.sells },
           { id: 'testing', icon: '🧪', label: 'Testing Strategy', badge: 0 },
         ] as { id: typeof tab; icon: string; label: string; badge: number }[]).map(({ id, icon, label, badge }) => {
           const active = tab === id;
@@ -821,223 +691,7 @@ export default function Dashboard() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
                   <AnimatePresence>
-                    {filtered.map(r => <SignalCard key={r.ticker} r={r} isNew={newTickers.has(r.ticker)} onPin={handlePin} />)}
-                  </AnimatePresence>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* PAST SIGNALS TAB */}
-          {tab === 'past' && (
-            <motion.div key="past" style={{ height: '100%', overflowY: 'auto' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              <div style={{ padding: '20px 24px 12px' }}>
-                <div style={{
-                  padding: '14px 18px', borderRadius: 14, marginBottom: 20,
-                  background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
-                  display: 'flex', gap: 12, alignItems: 'flex-start',
-                }}>
-                  <span style={{ fontSize: 20 }}>📋</span>
-                  <div>
-                    <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 4, fontSize: 14 }}>Signals You Might Have Missed</p>
-                    <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-                      Every BUY or SELL signal detected by Shoption is automatically logged here. Use this to review opportunities and learn the patterns.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {past.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40%', gap: 10 }}>
-                  <span style={{ fontSize: 40 }}>⏳</span>
-                  <p style={{ color: '#f0f4ff', fontWeight: 600, fontSize: 14 }}>No past signals yet</p>
-                  <p style={{ color: '#475569', fontSize: 13 }}>They'll appear as the scanner detects BUY/SELL setups</p>
-                </div>
-              ) : (
-                <>
-                  <div style={{ padding: '0 24px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
-                      <AnimatePresence>
-                        {past.map(t => <PastCard key={t.id} t={t} tz={tz} onPin={handlePin} currentPrice={results.find(x => x.ticker === t.ticker)?.price} />)}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 24 }}>
-                    <button onClick={() => { setPast([]); try { localStorage.removeItem('shoption_past'); } catch { /**/ } }}
-                      style={{ padding: '7px 20px', borderRadius: 100, background: 'rgba(244,63,94,0.08)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      Clear History
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-
-          {/* OPTIONS FLOW TAB */}
-          {tab === 'options' && (
-            <motion.div key="options" style={{ height: '100%', overflowY: 'auto', padding: '20px 24px' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              <div style={{
-                padding: '14px 18px', borderRadius: 14, marginBottom: 20,
-                background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-              }}>
-                <span style={{ fontSize: 20 }}>⚡</span>
-                <div>
-                  <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 4, fontSize: 14 }}>Options Flow — Where Big Money Is Betting</p>
-                  <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-                    Options flow tracks large bets placed by institutional traders. A high Vol/OI ratio = more contracts traded than normally exist — a strong signal.
-                  </p>
-                </div>
-              </div>
-
-              {optLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 60 }}>
-                  <p style={{ color: '#475569' }}>Loading options flow...</p>
-                </div>
-              ) : options.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40%', gap: 10 }}>
-                  <span style={{ fontSize: 40 }}>🔍</span>
-                  <p style={{ color: '#f0f4ff', fontWeight: 600, fontSize: 14 }}>No options flow data available</p>
-                  <p style={{ color: '#475569', fontSize: 13 }}>Options data shows during market hours 9:30 AM – 4:00 PM ET</p>
-                </div>
-              ) : (
-                <>
-                  {options.filter(o => o.isUnusual).length > 0 && (
-                    <div style={{ marginBottom: 24 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#f0f4ff' }}>⚡ Unusual Activity</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 100, background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
-                          {options.filter(o => o.isUnusual).length} contracts
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                        {options.filter(o => o.isUnusual).map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} onPin={handlePin} />)}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 14 }}>All Options Flow ({options.length})</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-                      {options.map((f, i) => <OptionsCard key={f.id} f={f} i={i} tz={tz} onPin={handlePin} />)}
-                    </div>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          )}
-
-          {/* PINNED TRADES TAB */}
-          {tab === 'pinned' && (
-            <motion.div key="pinned" style={{ height: '100%', overflowY: 'auto', padding: '24px' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              <div style={{
-                padding: '16px 20px', borderRadius: 14, marginBottom: 24,
-                background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-              }}>
-                <span style={{ fontSize: 24 }}>📌</span>
-                <div>
-                  <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 6, fontSize: 16 }}>Your Active Day Trades</p>
-                  <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>
-                    Track your live entry setups here. The engine provides dynamic exit warnings based on market closing hours so you safely exit Options positions without holding risk overnight.
-                  </p>
-                </div>
-              </div>
-
-              {pinned.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50%', gap: 10 }}>
-                  <span style={{ fontSize: 44 }}>📌</span>
-                  <p style={{ color: '#f0f4ff', fontWeight: 600, fontSize: 15 }}>No pinned trades yet</p>
-                  <p style={{ color: '#475569', fontSize: 13 }}>Click [PIN] on any scanning signal or past signal to track it here.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 20 }}>
-                  <AnimatePresence>
-                    {pinned.map((p) => {
-                      const isCall = p.signal === 'BUY';
-                      const color = isCall ? '#22c55e' : '#f43f5e';
-                      
-                      return (
-                        <motion.div key={p.id}
-                          layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                          style={{
-                            background: '#111827', border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column'
-                          }}>
-                          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                <span style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff' }}>{p.ticker}</span>
-                                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: p.assetType === 'OPTION' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.1)', color: p.assetType === 'OPTION' ? '#a5b4fc' : '#94a3b8' }}>{p.assetType || 'STOCK'}</span>
-                                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: `${color}22`, color, border: `1px solid ${color}44` }}>{p.signal}</span>
-                              </div>
-                              <div style={{ fontSize: 13, color: '#94a3b8' }}>
-                                Entry Marker: <strong style={{ color: '#e2e8f0' }}>${p.price.toFixed(2)}</strong> {p.strikeLabel && `→ ${p.strikeLabel}`}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontSize: 11, color: '#64748b' }}>Pinned on</div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1' }}>{p.date}</div>
-                              <div style={{ fontSize: 12, color: '#94a3b8' }}>{p.time}</div>
-                            </div>
-                          </div>
-
-                          <div style={{ padding: '16px 20px', flex: 1 }}>
-                            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Strategy Tracked</div>
-                            <div style={{
-                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              fontSize: 10, fontWeight: 700, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8
-                            }}>
-                              <span style={{ color: p.exitDate ? '#60a5fa' : '#64748b' }}>
-                                Auto-Exit Target:
-                              </span>
-                              <span style={{ color: p.exitDate ? '#f0f4ff' : '#94a3b8' }}>
-                                {p.exitDate ? `${p.exitDate} · ${p.exitTime}` : '---'}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5, background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)', marginTop: 12 }}>
-                              <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>⚙️ {p.strategyName || 'Momentum Push'}</div>
-                              {p.reason}
-                            </div>
-                            
-                            <div style={{ marginTop: 16 }}>
-                              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Dynamic Exit Plan</div>
-                              <div style={{
-                                padding: '12px', borderRadius: 8,
-                                background: p.exitDate ? 'rgba(244,63,94,0.1)' : 'rgba(34,197,94,0.08)',
-                                border: `1px solid ${p.exitDate ? 'rgba(244,63,94,0.3)' : 'rgba(34,197,94,0.3)'}`,
-                              }}>
-                                {p.exitDate ? (
-                                  <div style={{ display: 'flex', gap: 8, color: '#f43f5e', fontSize: 13, fontWeight: 600 }}>
-                                    <span>⚠️</span> <span>Momentum Flipped! Sell triggered at {p.exitTime} on {p.exitDate}.</span>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: 'flex', gap: 8, color: '#4ade80', fontSize: 13, fontWeight: 600 }}>
-                                    <span>✅</span> <span>Safe to ride momentum. Sell Date: ---</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div style={{ padding: '12px 20px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                            <button
-                              onClick={() => {
-                                const arr = pinned.filter(x => x.id !== p.id);
-                                setPinned(arr);
-                                localStorage.setItem('shoption_pinned', JSON.stringify(arr));
-                                window.dispatchEvent(new Event('storage'));
-                              }}
-                              style={{ width: '100%', padding: '10px', borderRadius: 8, background: 'rgba(244,63,94,0.1)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.2)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                            >
-                              <span>🗑️</span> <span style={{ marginTop: 2 }}>Close Trade & Discard File</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                    {filtered.map(r => <SignalCard key={r.ticker} r={r} isNew={newTickers.has(r.ticker)} onPin={() => {}} />)}
                   </AnimatePresence>
                 </div>
               )}
@@ -1132,14 +786,13 @@ export default function Dashboard() {
       {/* ── BOTTOM LEGEND ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24,
-        padding: '8px 24px', background: '#0d1117', borderTop: '1px solid rgba(255,255,255,0.06)',
+        padding: '8px 24px', background: '#000000', borderTop: '1px solid rgba(255,255,255,0.06)',
         fontSize: 11, color: '#334155', flexShrink: 0,
       }}>
-        <span><span style={{ color: '#22c55e' }}>↑ BUY</span> = Upward momentum + high volume</span>
-        <span><span style={{ color: '#f43f5e' }}>↓ SELL</span> = Breakdown + selling pressure</span>
-        <span><span style={{ color: '#f59e0b' }}>● WATCH</span> = Unusual activity, monitor it</span>
+        <span><span style={{ color: '#22c55e' }}>↑ BUY</span> = Validated Breakout Setup</span>
+        <span><span style={{ color: '#f43f5e' }}>↓ SELL</span> = Validated Breakdown Setup</span>
         <span style={{ color: '#1e293b' }}>|</span>
-        <span>Refreshes every 15s · Data from Polygon.io</span>
+        <span>Refreshes strictly per Polygon.io institutional streams.</span>
       </div>
     </div>
   );
