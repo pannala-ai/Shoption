@@ -354,12 +354,12 @@ export function evaluateQuantitativeSetup(
   let signal: SignalType = 'NONE';
   let strength = 0;
 
-  // Real trigger parameters: Extreme Institutional volume + massive structural breakout
-  if ((Math.abs(change) >= 3.5 && rvol >= 3.0) || rvol > 5.0) {
+  // Real trigger parameters: Strong Institutional volume + solid structural breakout targeting 10-20% option moves
+  if ((Math.abs(change) >= 1.25 && rvol >= 1.25) || rvol > 2.5) {
     signal = isBullish ? 'BUY' : 'SELL';
     
-    // Quantitative algorithmic mapping evaluated strictly on extreme metrics
-    strength = Math.round(rvol * 15 + Math.abs(change) * 5 + 50);
+    // Quantitative algorithmic mapping evaluated on daily momentum metrics, scaling smoothly to 90+
+    strength = Math.round(rvol * 12 + Math.abs(change) * 6 + 65);
     strength = Math.min(99, Math.max(10, strength));
     
     // Total destruction of any setup that fails to meet an absolute minimum Grade A edge
