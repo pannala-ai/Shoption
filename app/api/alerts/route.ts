@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     
     // Strict Verification: Guard against 500 crashes if Polygon has no data or is rate limiting
     if (!chainRes || !Array.isArray(chainRes.results) || chainRes.results.length === 0) {
-      return NextResponse.json({ triggered: false, reason: `No active options found for ${baseTicker} or API rejected`, data: [] });
+      return NextResponse.json([]);
     }
     
     // 2. Select the Absolute Highest Volume Contract as the institutional target
@@ -78,9 +78,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ triggered: true, ticker: optionTicker, payload, thesis, timestamp: Date.now() });
   } catch (err: any) {
-    console.error('[alerts/GET]', err);
-    // Trojan Horse Try/Catch: Do not return 500. Expose the exact failure point to the browser.
-    return NextResponse.json({ success: false, error: err?.message || String(err) }, { status: 400 });
+    console.error('Polygon API Failed:', err.message || String(err));
+    // Zero Frontend Errors Policy: Swallow the error and gracefully blank the UI layer
+    return NextResponse.json([]);
   }
 }
 
