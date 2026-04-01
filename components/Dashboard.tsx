@@ -5,6 +5,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AlertToast from './AlertToast';
 
 // ── Types ─────────────────────────────────────────────────────
+interface BacktestRow {
+  id: string;
+  ticker: string;
+  signal: 'BUY' | 'SELL';
+  entryTime: number;
+  entryDate: string;
+  entryPrice: number;
+  peakPrice: number;
+  peakPremium: number;
+  entryPremium: number;
+  maxGainPct: number;
+  hitTarget: number;
+  strength: number;
+  reason: string;
+}
+
 interface AdvancedMetrics {
   stopLoss: number;
   takeProfit: number;
@@ -435,13 +451,14 @@ function OptionsCard({ f, i, tz, onPin }: { f: OptionsRow; i: number; tz: string
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'past'|'options'|'pinned'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'past'|'options'|'pinned'|'testing'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
-  const [assetFilter, setAssetFilter] = useState<'all'|'stock'|'option'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [options,   setOptions]   = useState<OptionsRow[]>([]);
   const [past,      setPast]      = useState<PastTrade[]>([]);
   const [pinned,    setPinned]    = useState<PinnedTrade[]>([]);
+  const [backtests, setBacktests] = useState<BacktestRow[]>([]);
+  const [runningBacktest, setRunningBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
   const [optLoading, setOptLoad]  = useState(true);
   const [scanning,  setScanning]  = useState(false);
@@ -608,7 +625,28 @@ export default function Dashboard() {
     finally { setOptLoad(false); }
   }, []);
 
-  useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 60000); return () => clearInterval(id); }, [fetchScan]);
+  const fetchBacktests = useCallback(async () => {
+    try {
+      const r = await fetch('/api/backtests');
+      if (!r.ok) return;
+      const d = await r.json();
+      setBacktests(d.backtests || []);
+    } catch (e) { console.error('[backtests]', e); }
+  }, []);
+
+  const runHistoricalSimulation = async () => {
+    setRunningBacktest(true);
+    try {
+      const r = await fetch('/api/run-backtest', { method: 'POST' });
+      await r.json();
+      await fetchBacktests();
+    } catch (e) { console.error(e); }
+    finally { setRunningBacktest(false); }
+  };
+
+  useEffect(() => { fetchBacktests(); }, [fetchBacktests]);
+
+  useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
   useEffect(() => { 
     // Stagger Options load by 2 seconds so the initial live scanner polygon API rate limit drops don't trigger 429 errors
     const timeoutid = setTimeout(fetchOptions, 2500); 
@@ -620,8 +658,8 @@ export default function Dashboard() {
     if (r.signal === 'NONE') return false;
     if (filter === 'buy' && r.signal !== 'BUY') return false;
     if (filter === 'sell' && r.signal !== 'SELL') return false;
-    if (assetFilter === 'stock' && r.assetType !== 'STOCK') return false;
-    if (assetFilter === 'option' && r.assetType !== 'OPTION') return false;
+    // Architecture Pivot: Enforce strictly Options metrics over the live scanner view
+    if (r.assetType !== 'OPTION') return false;
     return true;
   });
 
@@ -695,6 +733,7 @@ export default function Dashboard() {
           { id: 'past',    icon: '📋', label: 'Past Signals',  badge: past.length },
           { id: 'options', icon: '⚡', label: 'Options Flow',  badge: options.filter(o => o.isUnusual).length },
           { id: 'pinned',  icon: '📌', label: 'Pinned Trades', badge: pinned.length },
+          { id: 'testing', icon: '🧪', label: 'Testing Strategy', badge: 0 },
         ] as { id: typeof tab; icon: string; label: string; badge: number }[]).map(({ id, icon, label, badge }) => {
           const active = tab === id;
           return (
@@ -722,25 +761,7 @@ export default function Dashboard() {
         {/* Filter chips (scanner only) */}
         {tab === 'scanner' && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 6, borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: 12 }}>
-              {([
-                { id: 'all', label: 'All Assets' },
-                { id: 'stock', label: 'Stocks' },
-                { id: 'option', label: 'Options' },
-              ] as { id: typeof assetFilter; label: string }[]).map(({ id, label }) => {
-                const active = assetFilter === id;
-                return (
-                  <button key={id} onClick={() => setAssetFilter(id as any)} style={{
-                    padding: '6px 14px', borderRadius: 100, border: `1px solid ${active ? '#6366f155' : 'rgba(255,255,255,0.08)'}`,
-                    background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
-                    color: active ? '#a5b4fc' : '#475569',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+
             <div style={{ display: 'flex', gap: 6 }}>
               {[
                 { id: 'all',  label: `All (${filtered.length})` },
@@ -1018,6 +1039,88 @@ export default function Dashboard() {
                       );
                     })}
                   </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TESTING STRATEGY TAB */}
+          {tab === 'testing' && (
+            <motion.div key="testing" style={{ height: '100%', overflowY: 'auto', padding: '20px 24px' }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{
+                padding: '14px 18px', borderRadius: 14, marginBottom: 20,
+                background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)',
+                display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <span style={{ fontSize: 20 }}>🧪</span>
+                  <div>
+                    <p style={{ fontWeight: 700, color: '#f0f4ff', marginBottom: 4, fontSize: 14 }}>Historical Options Backtester</p>
+                    <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
+                      This engine sweeps trailing historical intraday data (1m arrays) and mathematically filters it through the live Scanner quantitative logic.<br/>
+                      It targets identifying explosive setups mapping to an explicit <strong>≥10%</strong> simulated option premium target.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={runHistoricalSimulation}
+                  disabled={runningBacktest}
+                  style={{
+                    padding: '8px 16px', borderRadius: 6, background: '#22c55e', color: '#000',
+                    border: 'none', fontWeight: 800, fontSize: 13, cursor: runningBacktest ? 'not-allowed' : 'pointer', fontFamily: 'inherit', flexShrink: 0
+                  }}
+                >
+                  {runningBacktest ? 'Running Backtest...' : 'Run Historical Simulation'}
+                </button>
+              </div>
+
+              {backtests.length === 0 ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40%', gap: 10 }}>
+                   <p style={{ color: '#475569', fontSize: 13 }}>No historical backtests stored in SQLite yet.</p>
+                 </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(0,0,0,0.2)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden'
+                }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.03)', color: '#94a3b8', textTransform: 'uppercase' }}>
+                        <th style={{ padding: '12px 16px' }}>Date</th>
+                        <th style={{ padding: '12px 16px' }}>Signal</th>
+                        <th style={{ padding: '12px 16px' }}>Entry Premium</th>
+                        <th style={{ padding: '12px 16px' }}>Peak Premium</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>Max Gain</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'center' }}>Target</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backtests.map((b) => (
+                        <tr key={b.id} style={{ borderTop: '1px solid rgba(255,255,255,0.03)', color: '#e2e8f0' }}>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div style={{ fontWeight: 600 }}>{b.entryDate}</div>
+                            <div style={{ color: '#64748b', fontSize: 11 }}>{new Date(b.entryTime).toLocaleTimeString()}</div>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ color: '#f0f4ff', fontWeight: 800, marginRight: 8 }}>{b.ticker}</span>
+                            <span style={{ color: b.signal === 'BUY' ? '#4ade80' : '#f87171', fontWeight: 600 }}>{b.signal}</span>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>${b.entryPremium.toFixed(2)}</td>
+                          <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>${b.peakPremium.toFixed(2)}</td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: b.maxGainPct >= 10 ? '#4ade80' : '#fca5a5' }}>
+                            +{b.maxGainPct.toFixed(1)}%
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                            {b.hitTarget ? (
+                              <span style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', padding: '4px 8px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>HIT</span>
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: 10 }}>MISS</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </motion.div>

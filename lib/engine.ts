@@ -191,6 +191,7 @@ export interface BSMGreeks {
   vega: number;
   rho: number;
   iv: number;
+  theoreticalPremium: number;
 }
 
 /**
@@ -206,7 +207,7 @@ export function calculateBSMGreeks(
   S: number, K: number, T: number, r: number, sigma: number, optionType: 'call' | 'put'
 ): BSMGreeks {
   if (T <= 0 || S <= 0 || K <= 0 || sigma <= 0) {
-    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, iv: sigma };
+    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, iv: sigma, theoreticalPremium: 0 };
   }
 
   const sqrtT = Math.sqrt(T);
@@ -229,6 +230,10 @@ export function calculateBSMGreeks(
     ? K * T * Math.exp(-r * T) * nd2 / 100
     : -K * T * Math.exp(-r * T) * nd2neg / 100;
 
+  const premium = optionType === 'call'
+    ? S * nd1 - K * Math.exp(-r * T) * nd2
+    : K * Math.exp(-r * T) * nd2neg - S * nd1neg;
+
   return {
     delta: parseFloat(delta.toFixed(4)),
     gamma: parseFloat(gamma.toFixed(6)),
@@ -236,6 +241,7 @@ export function calculateBSMGreeks(
     vega:  parseFloat(vega.toFixed(4)),
     rho:   parseFloat(rho.toFixed(4)),
     iv:    sigma,
+    theoreticalPremium: parseFloat(premium.toFixed(4)),
   };
 }
 
@@ -346,9 +352,9 @@ export function evaluateQuantitativeSetup(
   const priceVsVwap = vwap > 0 ? (price - vwap) / vwap : 0;
   const isBullish = price > vwap && change > 0;
   
-  // Asset Type Logic (Derivatives require higher underlying volatility)
-  const isOption = Math.abs(change) > 2.5 || rvol > 2.0;
-  const assetType: AssetType = isOption ? 'OPTION' : 'STOCK';
+  // Architecture Pivot: Option-focused execution only
+  const isOption = true;
+  const assetType: AssetType = 'OPTION';
 
   // Base signal and strength
   let signal: SignalType = 'NONE';
