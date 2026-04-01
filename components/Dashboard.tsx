@@ -494,10 +494,42 @@ export default function Dashboard() {
       if (!r.ok) return;
       const d = await r.json();
       const data: ScanResult[] = d.results ?? [];
-      setResults(data);
-      const buys    = data.filter(r => r.signal === 'BUY').length;
-      const sells   = data.filter(r => r.signal === 'SELL').length;
-      setStats({ total: d.totalScanned ?? data.length, buys, sells });
+      
+      setResults(prev => {
+        // Create an active accumulation history without wiping on every re-render
+        let newResults = [...prev];
+        let stateUpdated = false;
+        
+        for (const item of data) {
+           if (item.signal !== 'NONE') {
+               // WebSocket emulation logging as requested
+               console.log("Incoming Signal:", item);
+               
+               // Prevent exact duplicate overwrites (check ticker & signal type)
+               const exists = newResults.find(r => r.ticker === item.ticker && r.signal === item.signal);
+               if (!exists) {
+                   newResults.unshift(item); // Prepend so newest is on top
+                   stateUpdated = true;
+               } else {
+                   // Update live pricing but don't duplicate the entry
+                   exists.price = item.price;
+                   exists.change = item.change;
+                   stateUpdated = true;
+               }
+           }
+        }
+        
+        // Constrain array bloat
+        if (newResults.length > 200) newResults = newResults.slice(0, 200);
+        
+        // Dynamically compute stats from the accumulated list
+        const buys  = newResults.filter(r => r.signal === 'BUY').length;
+        const sells = newResults.filter(r => r.signal === 'SELL').length;
+        setStats({ total: newResults.length, buys, sells });
+        
+        return stateUpdated ? newResults : prev;
+      });
+
       setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }));
     } catch (e) { console.error('[scan]', e); }
     finally { setScanning(false); setLoading(false); }

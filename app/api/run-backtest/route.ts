@@ -11,8 +11,32 @@ export async function POST() {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 6); // Grab last 5 days approximately
 
-    // Clear previous backtest table to keep it fresh
-    db.exec(`DELETE FROM backtests;`);
+    // Database Initialization Safety: Explicitly force table structure matching production requirements
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS backtests (
+          id TEXT PRIMARY KEY,
+          ticker TEXT,
+          signal TEXT,
+          entryTime INTEGER,
+          entryDate TEXT,
+          entryPrice REAL,
+          peakPrice REAL,
+          peakPremium REAL,
+          entryPremium REAL,
+          maxGainPct REAL,
+          hitTarget INTEGER,
+          strength INTEGER,
+          reason TEXT
+        );
+      `);
+      // Clear previous backtest table to keep it fresh for this run
+      db.exec(`DELETE FROM backtests;`);
+    } catch (dbErr: any) {
+      console.error(`[DB ERROR] Failed to initialize SQLite Database. Exact error: ${dbErr.message}`);
+      return NextResponse.json({ success: false, error: 'Database Initialization Failed' }, { status: 500 });
+    }
+
     const insertStmt = db.prepare(`
       INSERT INTO backtests (id, ticker, signal, entryTime, entryDate, entryPrice, peakPrice, peakPremium, entryPremium, maxGainPct, hitTarget, strength, reason)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -111,15 +135,20 @@ export async function POST() {
                 const endDate = new Date(entryDate);
                 endDate.setDate(endDate.getDate() + 2);
                 
+                // Execute explicit exact Option data fetching from Polygon.io endpoint (wss:// Delayed or REST)
                 let optionBars: any[] = [];
                 try {
                    // Real OREVIX Data Fetch: Pull actual 1-minute bars for the SPECIFIC option contract
                    const polyRes = await getAggBars(optionTicker, 1, 'minute', entryDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]);
                    optionBars = polyRes.results || [];
-                } catch {
-                   // Graceful degradation against Polygon's draconian 5/minute freetier limit during mass backtesting loops
-                   // Deterministic fallback representing actual average premium spread behaviors
-                   optionBars = [];
+                   
+                   if (optionBars.length === 0) {
+                       console.error(`[Polygon API] No data returned for option ticker: ${optionTicker}. This usually indicates a malformed ticker or zero volume day.`);
+                   }
+                } catch (apiErr: any) {
+                   console.error(`[Polygon API ERROR] Failed to fetch aggregate bars for literal ticker ${optionTicker} | Error Message: ${apiErr.message}`);
+                   // Do not let it fail silently: Break loop iteration and move to next signal instead of mocking
+                   continue;
                 }
 
                 let entryPremium = 0;
@@ -150,30 +179,8 @@ export async function POST() {
                        }
                    }
                 } else {
-                   // Freetier Rate Limit Fallback Logic (Applies synthetic 3% slippage internally)
-                   entryPremium = (entryPrice * 0.05); // pseudo premium
-                   peakPremium = entryPremium;
-                   
-                   for (let j = i; j < intraday.length; j++) {
-                     const fwd = intraday[j];
-                     if (!fwd.close) continue;
-                     
-                     // Rough spot premium calculation representing max intraday tracking
-                     const fwdSpot = isBullish ? fwd.high : fwd.low;
-                     if (!fwdSpot) continue;
-
-                     // Determine structural value relative to entry minus 3% simulated slippage penalty
-                     const fwdPrem = entryPremium + Math.abs(fwdSpot - entryPrice) * 0.4;
-                     
-                     if (fwdPrem > peakPremium) {
-                       peakPremium = fwdPrem;
-                       peakPrice = fwdSpot;
-                     }
-
-                     if (entryPremium > 0 && (peakPremium / entryPremium) >= 1.10) {
-                        break; 
-                     }
-                   }
+                    // Signal invalidated due to missing data. Log failure and abort fake testing.
+                    console.log(`[Backtester] Skipping invalid signal entry for ${optionTicker}: Zero structural bars found during requested period.`);
                 }
 
                 if (entryPremium > 0) {
