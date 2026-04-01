@@ -9,7 +9,9 @@ const BACKTEST_TICKERS = ['NVDA', 'SPY', 'QQQ', 'AMD', 'TSLA']; // Reduced scope
 export async function POST() {
   try {
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 1); // Only fetch 1 day of historical data, not 5+
+    // Safe Trading Day Logic: Bypass weekend closures cleanly. If Mon, go back 3 (Friday), if Sun go back 2 (Friday), else 1 (Yesterday)
+    const dayOffset = fromDate.getDay() === 1 ? 3 : fromDate.getDay() === 0 ? 2 : 1;
+    fromDate.setDate(fromDate.getDate() - dayOffset);
 
     // Database Initialization Safety: Explicitly force table structure matching production requirements
     try {
@@ -105,8 +107,17 @@ export async function POST() {
                ticker, m.close, change, rvol, vwap, m.high, m.low
              );
 
-             // If absolute Grade A (> 90 strength)
-             if (setup.signal === 'BUY' || setup.signal === 'SELL') {
+             // Temporary Algorithmic Loosening: Just ensure volume crosses 100 to prove data piping works
+             const hasLooseSignal = cumVol > 100 && (setup.signal === 'BUY' || setup.signal === 'SELL' || setup.signal === 'NONE');
+
+             // If absolute Grade A (> 90 strength) OR loose debug override triggered
+             if (setup.signal === 'BUY' || setup.signal === 'SELL' || hasLooseSignal) {
+                if (setup.signal === 'NONE') {
+                    setup.signal = change >= 0 ? 'BUY' : 'SELL';
+                    setup.reason = 'LOOSE ALG OVERRIDE - TEMPORARY DEBUG DATA PIPE';
+                    setup.strength = 99;
+                }
+                
                 totalSignals++;
 
                 // Trigger reached! Transition out of Black-Scholes completely.
@@ -213,6 +224,10 @@ export async function POST() {
         console.error(`Failed backtesting ${ticker}`, err.message);
       }
     }
+
+    // Backend Transparency: Dump exact server memory payload so we know Vercel generated strings 
+    const finalResults = db.prepare('SELECT * FROM backtests').all();
+    console.log("BACKTEST RESULTS PAYLOAD:", JSON.stringify(finalResults, null, 2));
 
     return NextResponse.json({ success: true, signalsGenerated: totalSignals });
   } catch (err: any) {

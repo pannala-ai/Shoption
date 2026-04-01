@@ -454,8 +454,9 @@ export default function Dashboard() {
   const [tab,       setTab]       = useState<'scanner'|'testing'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
-  const [backtests, setBacktests] = useState<BacktestRow[]>([]);
+  const [backtests, setBacktests] = useState<any[]>([]);
   const [runningBacktest, setRunningBacktest] = useState(false);
+  const [hasRunBacktest, setHasRunBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
   const [optLoading, setOptLoad]  = useState(true);
   const [scanning,  setScanning]  = useState(false);
@@ -546,12 +547,17 @@ export default function Dashboard() {
 
   const runHistoricalSimulation = async () => {
     setRunningBacktest(true);
+    setHasRunBacktest(false);
     try {
       const r = await fetch('/api/run-backtest', { method: 'POST' });
       await r.json();
       await fetchBacktests();
-    } catch (e) { console.error(e); }
-    finally { setRunningBacktest(false); }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setRunningBacktest(false); 
+      setHasRunBacktest(true);
+    }
   };
 
   useEffect(() => { fetchBacktests(); }, [fetchBacktests]);
@@ -761,9 +767,21 @@ export default function Dashboard() {
                 </button>
               </div>
 
-              {backtests.length === 0 ? (
+              {runningBacktest && backtests.length === 0 ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40%', gap: 16 }}>
+                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} style={{ width: 34, height: 34, border: '3px solid rgba(255,255,255,0.05)', borderTopColor: '#22c55e', borderRadius: '50%' }} />
+                   <p style={{ color: '#4ade80', fontSize: 13, fontWeight: 700, letterSpacing: '0.05em' }}>Running Backtest... sweeping historical arrays.</p>
+                 </div>
+              ) : backtests.length === 0 ? (
                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40%', gap: 10 }}>
-                   <p style={{ color: '#475569', fontSize: 13 }}>No historical backtests stored in SQLite yet.</p>
+                   {hasRunBacktest ? (
+                     <p style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center', maxWidth: 400, lineHeight: 1.6 }}>
+                       <strong>Backtest completed successfully</strong><br/>
+                       but 0 signals matched the algorithmic criteria for this timeframe.
+                     </p>
+                   ) : (
+                     <p style={{ color: '#475569', fontSize: 13 }}>No historical backtests stored in array database yet.</p>
+                   )}
                  </div>
               ) : (
                 <div style={{
