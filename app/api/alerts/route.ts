@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
     const chainRes = await getOptionsChain(baseTicker.toUpperCase());
     
     // Strict Verification: Guard against 500 crashes if Polygon has no data or is rate limiting
-    if (!chainRes || !chainRes.results || chainRes.results.length === 0) {
-      return NextResponse.json({ triggered: false, reason: `No active options found for ${baseTicker}`, data: [] });
+    if (!chainRes || !Array.isArray(chainRes.results) || chainRes.results.length === 0) {
+      return NextResponse.json({ triggered: false, reason: `No active options found for ${baseTicker} or API rejected`, data: [] });
     }
     
     // 2. Select the Absolute Highest Volume Contract as the institutional target
@@ -77,9 +77,10 @@ export async function GET(req: NextRequest) {
     const thesis = await generateTradeTThesis(prompt);
 
     return NextResponse.json({ triggered: true, ticker: optionTicker, payload, thesis, timestamp: Date.now() });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[alerts/GET]', err);
-    return NextResponse.json({ error: 'Failed to generate alert' }, { status: 500 });
+    // Trojan Horse Try/Catch: Do not return 500. Expose the exact failure point to the browser.
+    return NextResponse.json({ success: false, error: err?.message || String(err) }, { status: 400 });
   }
 }
 
