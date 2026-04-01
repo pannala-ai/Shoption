@@ -652,7 +652,11 @@ export default function Dashboard() {
               background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
               color: active ? '#a5b4fc' : '#475569',
               boxShadow: active ? '0 0 20px rgba(99,102,241,0.12)' : 'none',
-            }}>
+            }}
+              className="hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              role="tab"
+              aria-selected={active}
+            >
               <span>{icon}</span>
               <span>{label}</span>
               {badge > 0 && (
@@ -704,9 +708,26 @@ export default function Dashboard() {
             <motion.div key="scanner" style={{ height: '100%', overflowY: 'auto', padding: '24px' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 12 }}>
-                  <div className="pulse-dot" style={{ width: 14, height: 14 }} />
-                  <p style={{ color: '#475569', fontSize: 14 }}>Scanning 50+ stocks...</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
+                  {/* Skeleton Card Grids */}
+                  {[...Array(12)].map((_, i) => (
+                    <motion.div 
+                      key={i} 
+                      className="h-[220px] rounded-2xl bg-white/[0.02] border border-white/[0.05] p-4 flex flex-col justify-between overflow-hidden relative"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
+                      <div className="flex justify-between items-start">
+                         <div className="w-24 h-8 bg-white/[0.04] rounded-md" />
+                         <div className="w-16 h-6 bg-white/[0.04] rounded-full" />
+                      </div>
+                      <div className="w-full h-10 bg-white/[0.04] rounded-lg mt-4" />
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div className="h-10 bg-white/[0.04] rounded-lg" />
+                        <div className="h-10 bg-white/[0.04] rounded-lg" />
+                      </div>
+                      <div className="w-3/4 h-8 bg-white/[0.04] rounded-lg mt-2" />
+                    </motion.div>
+                  ))}
                 </div>
               ) : mkt.label === 'Closed' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 12, textAlign: 'center' }}>
@@ -758,10 +779,9 @@ export default function Dashboard() {
                 <button
                   onClick={runHistoricalSimulation}
                   disabled={runningBacktest}
-                  style={{
-                    padding: '8px 16px', borderRadius: 6, background: '#22c55e', color: '#000',
-                    border: 'none', fontWeight: 800, fontSize: 13, cursor: runningBacktest ? 'not-allowed' : 'pointer', fontFamily: 'inherit', flexShrink: 0
-                  }}
+                  className="px-5 py-2.5 rounded-lg bg-emerald-500 text-black font-extrabold text-sm flex-shrink-0 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 hover:shadow-[0_0_20px_-5px_rgba(34,197,94,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a2e22]"
+                  aria-busy={runningBacktest}
+                  aria-label="Run Historical Simulation Backtester"
                 >
                   {runningBacktest ? 'Running Backtest...' : 'Run Historical Simulation'}
                 </button>
