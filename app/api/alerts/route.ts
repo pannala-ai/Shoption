@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTradeTThesis, scoreHeadlineSentiment } from '@/lib/openai-client';
 import { shouldTriggerAlert, formatSynthesizerPrompt, SynthesizerPayload } from '@/lib/engine';
-import { getSnapshot } from '@/lib/polygon';
+import { getOptionsChain } from '@/lib/polygon';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,31 +31,37 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  // Demo: generate alert for a ticker passed as query param
-  const ticker = req.nextUrl.searchParams.get('ticker') ?? 'NVDA';
+  // Convert the generic stock ticker query into a pinpointed top-tier Options target
+  const baseTicker = req.nextUrl.searchParams.get('ticker') ?? 'NVDA';
 
   try {
-    const snapshot = await getSnapshot(ticker.toUpperCase());
-    const t = snapshot.ticker;
-
-    if (!t) {
-      return NextResponse.json({ error: 'Ticker not found' }, { status: 404 });
+    // 1. Fetch the Options Chain dynamically to lock onto the correct external ticker string format
+    const chainRes = await getOptionsChain(baseTicker.toUpperCase());
+    
+    // Strict Verification: Guard against 500 crashes if Polygon has no data or is rate limiting
+    if (!chainRes || !chainRes.results || chainRes.results.length === 0) {
+      return NextResponse.json({ triggered: false, reason: `No active options found for ${baseTicker}`, data: [] });
     }
+    
+    // 2. Select the Absolute Highest Volume Contract as the institutional target
+    const topContract = chainRes.results.sort((a, b) => (b.day?.volume || 0) - (a.day?.volume || 0))[0];
+    const optionTicker = topContract.details.ticker; // Properly formatted: e.g., O:AAPL240119C00150000
 
-    const price = t.lastTrade?.p ?? t.day?.c ?? 0;
-    const vwap = t.day?.vw ?? price;
-    const minutesElapsed = getMinutesIntoTradingDay();
-    const prevDayMinuteVol = t.prevDay?.v ? t.prevDay.v / 390 : 1;
-    const currentMinuteVol = t.day?.v ? t.day.v / Math.max(1, minutesElapsed) : 0;
-    const rvol = prevDayMinuteVol > 0 ? currentMinuteVol / prevDayMinuteVol : 0;
+    const price = topContract.day?.close ?? topContract.underlying_asset?.price ?? 0;
+    const vwap = topContract.day?.vwap ?? price;
+    
+    // Emulate RVOL relative against physical Open Interest
+    const contractVolume = topContract.day?.volume || 0;
+    const contractOI = topContract.open_interest || Math.max(1, contractVolume / 2); // Default mock if 0
+    const rvol = contractOI > 0 ? contractVolume / contractOI : 0;
 
     const payload: SynthesizerPayload = {
-      ticker: ticker.toUpperCase(),
+      ticker: optionTicker, // Pass the EXACT option format into the AI synthesizer to maintain Orevix rigidity
       price,
       vwap,
       rvol: parseFloat(rvol.toFixed(2)),
-      otmCallVolumeSpike: rvol > 2.5, // simplified proxy
-      uoaDetected: false,
+      otmCallVolumeSpike: topContract.details.contract_type === 'call' && rvol > 1.5,
+      uoaDetected: rvol > 2.0, 
       gex: 0,
     };
 
@@ -70,7 +76,7 @@ export async function GET(req: NextRequest) {
     const prompt = formatSynthesizerPrompt(payload);
     const thesis = await generateTradeTThesis(prompt);
 
-    return NextResponse.json({ triggered: true, ticker, payload, thesis, timestamp: Date.now() });
+    return NextResponse.json({ triggered: true, ticker: optionTicker, payload, thesis, timestamp: Date.now() });
   } catch (err) {
     console.error('[alerts/GET]', err);
     return NextResponse.json({ error: 'Failed to generate alert' }, { status: 500 });
@@ -90,12 +96,3 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-function getMinutesIntoTradingDay(): number {
-  const now = new Date();
-  const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const hours = eastern.getHours();
-  const minutes = eastern.getMinutes();
-  const totalMinutes = hours * 60 + minutes;
-  const marketOpen = 9 * 60 + 30;
-  return Math.max(1, totalMinutes - marketOpen);
-}

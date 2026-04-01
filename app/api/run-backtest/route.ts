@@ -4,12 +4,12 @@ import db from '@/lib/db';
 import { evaluateQuantitativeSetup } from '@/lib/engine';
 import { getAggBars } from '@/lib/polygon';
 
-const BACKTEST_TICKERS = ['NVDA', 'TSLA', 'SPY', 'QQQ', 'AMD', 'AAPL', 'META', 'COIN', 'MSTR'];
+const BACKTEST_TICKERS = ['NVDA', 'SPY', 'QQQ', 'AMD', 'TSLA']; // Reduced scope to clear Vercel's tight 10s serverless timeout bounds
 
 export async function POST() {
   try {
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 6); // Grab last 5 days approximately
+    fromDate.setDate(fromDate.getDate() - 1); // Only fetch 1 day of historical data, not 5+
 
     // Database Initialization Safety: Explicitly force table structure matching production requirements
     try {
@@ -209,15 +209,17 @@ export async function POST() {
              }
            }
         }
-      } catch (err) {
-        console.error(`Failed backtesting ${ticker}`, err);
+      } catch (err: any) {
+        console.error(`Failed backtesting ${ticker}`, err.message);
       }
     }
 
     return NextResponse.json({ success: true, signalsGenerated: totalSignals });
-  } catch (err: unknown) {
+  } catch (err: any) {
+    console.error('CRITICAL BACKTEST FAILURE:', err.message);
     const errorMsg = err instanceof Error ? err.message : String(err);
-    console.error('Backtest error', errorMsg);
-    return NextResponse.json({ success: false, error: errorMsg }, { status: 500 });
+    const stackTrace = err instanceof Error ? err.stack : '';
+    // Do not fail silently. Return explicit errors so Vercel 500s are fully diagnosed.
+    return NextResponse.json({ success: false, error: errorMsg, stack: stackTrace }, { status: 500 });
   }
 }
