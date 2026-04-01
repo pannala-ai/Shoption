@@ -81,19 +81,19 @@ export async function POST() {
             }
             const vSMA = prevVolSum / 20;
 
-            // Step 2: Liquidity Check (Reduced to >10 to capture valid illiquid breakouts)
-            if (bar.v <= 10) continue;
+            // Step 2: Liquidity Check (Minimal requirement)
+            if (bar.v <= 2) continue;
             
-            // Step 3: Relative Volume (RVOL) > 1.5x (Down from 2.5x to capture regular momentum)
-            if (bar.v <= 1.5 * vSMA) continue;
+            // Step 3: Relative Volume (RVOL) > 1.1x (Any baseline momentum expansion)
+            if (bar.v <= 1.1 * vSMA) continue;
             
-            // Step 4: Price Action - Bullish Strength
+            // Step 4: Price Action - Pure Upside Structural Flow
             const range = bar.h - bar.l;
             if (range <= 0) continue; 
             
-            // Must be a green structural candle and close in the upper 40% of its range (abandoning strict 10% Marubozu limit)
+            // Must simply hold a baseline green structural expansion candle
             const isGreen = bar.c > bar.o;
-            const holdsTopRange = bar.c >= bar.l + (range * 0.60);
+            const holdsTopRange = bar.c >= bar.l + (range * 0.30);
             
             if (!isGreen || !holdsTopRange) continue;
 

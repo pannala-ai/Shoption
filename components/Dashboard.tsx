@@ -779,7 +779,14 @@ export default function Dashboard() {
                 <button
                   onClick={runHistoricalSimulation}
                   disabled={runningBacktest}
-                  className="px-5 py-2.5 rounded-lg bg-emerald-500 text-black font-extrabold text-sm flex-shrink-0 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 hover:shadow-[0_0_20px_-5px_rgba(34,197,94,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a2e22]"
+                  style={{
+                    padding: '12px 24px', borderRadius: 8, background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#000', border: 'none', fontWeight: 800, fontSize: 14, cursor: runningBacktest ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', flexShrink: 0, transition: 'all 0.2s', opacity: runningBacktest ? 0.6 : 1,
+                    boxShadow: '0 8px 20px -8px rgba(16,185,129,0.5)'
+                  }}
+                  onMouseOver={(e) => { if (!runningBacktest) { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 10px 25px -8px rgba(16,185,129,0.7)'; } }}
+                  onMouseOut={(e) => { if (!runningBacktest) { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 20px -8px rgba(16,185,129,0.5)'; } }}
                   aria-busy={runningBacktest}
                   aria-label="Run Historical Simulation Backtester"
                 >
