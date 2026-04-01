@@ -19,6 +19,7 @@ export async function POST() {
           ticker TEXT,
           signal TEXT,
           entryTime INTEGER,
+          exitTime INTEGER,
           entryDate TEXT,
           entryPrice REAL,
           peakPrice REAL,
@@ -37,8 +38,8 @@ export async function POST() {
     }
 
     const insertStmt = db.prepare(`
-      INSERT INTO backtests (id, ticker, signal, entryTime, entryDate, entryPrice, peakPrice, peakPremium, entryPremium, maxGainPct, hitTarget, strength, reason)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO backtests (id, ticker, signal, entryTime, exitTime, entryDate, entryPrice, peakPrice, peakPremium, entryPremium, maxGainPct, hitTarget, strength, reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     let totalSignals = 0;
@@ -149,6 +150,7 @@ export async function POST() {
             let peakPremium = realEntryPremium;
             let hitTarget = false;
             let stoppedOut = false;
+            let exitTime = bar.t + (30 * 60 * 1000); // Default 30 min exit if nothing happens
             
             // Target Evaluation
             for (let j = i + 1; j < barsLen; j++) {
@@ -161,10 +163,12 @@ export async function POST() {
                 // Loss Condition First (High Volatility Defense)
                 if (fwdBar.l <= realEntryPremium * 0.95) {
                     stoppedOut = true;
+                    exitTime = fwdBar.t;
                 } 
                 // Win Condition
                 if (!stoppedOut && fwdBar.h >= realEntryPremium * 1.10) {
                     hitTarget = true;
+                    exitTime = fwdBar.t;
                 }
                 
                 if (hitTarget || stoppedOut) {
@@ -180,6 +184,7 @@ export async function POST() {
                optionTicker,
                signalDirection,
                bar.t,
+               exitTime,
                entryDate.toISOString().split('T')[0],
                bar.c, 
                peakPremium,
@@ -204,8 +209,12 @@ export async function POST() {
             
             // Simple forward sweep for the floor signal
             let peak = realEntryPremium;
+            let exitTime = bar.t + (60 * 60 * 1000); // 1 hour exit for floor trades
             for(let k = bar.index + 1; k < barsLen; k++) {
-                if (bars[k].h > peak) peak = bars[k].h;
+                if (bars[k].h > peak) {
+                    peak = bars[k].h;
+                    exitTime = bars[k].t;
+                }
             }
             const gain = ((peak - realEntryPremium) / realEntryPremium) * 100;
 
@@ -214,6 +223,7 @@ export async function POST() {
                 optionTicker,
                 signalDirection,
                 bar.t,
+                exitTime,
                 new Date(bar.t).toISOString().split('T')[0],
                 bar.c,
                 peak,

@@ -64,13 +64,15 @@ export async function GET() {
        const hour = 9 + Math.floor(norm * 6); // 9 to 15 (3 PM)
        const minute = Math.floor(((norm * 100) % 1) * 60);
        const timeString = `${isoDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
-       const exactFillTime = new Date(timeString).getTime();
+       const entryTime = new Date(timeString).getTime();
+       const exitTime = entryTime + (15 * 60 * 1000) + (norm * 75 * 60 * 1000); // 15-90 mins later
 
        generatedPastSignals.push({
           id: `${ticker}-${isoDate}-${j}-v2`,
           ticker,
           signal,
-          entryTime: exactFillTime,
+          entryTime,
+          exitTime,
           entryDate: isoDate,
           entryPrice: spot, 
           peakPrice: spot * (isCall ? 1.03 : 0.97),

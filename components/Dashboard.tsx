@@ -836,8 +836,9 @@ export default function Dashboard() {
                       <tr style={{ background: 'rgba(255,255,255,0.03)', color: '#94a3b8', textTransform: 'uppercase' }}>
                         <th style={{ padding: '12px 16px' }}>Date</th>
                         <th style={{ padding: '12px 16px' }}>Signal</th>
-                        <th style={{ padding: '12px 16px' }}>Entry Premium</th>
-                        <th style={{ padding: '12px 16px' }}>Peak Premium</th>
+                        <th style={{ padding: '12px 16px' }}>Entry Time</th>
+                        <th style={{ padding: '12px 16px' }}>Sell Time</th>
+                        <th style={{ padding: '12px 16px' }}>Entry</th>
                         <th style={{ padding: '12px 16px', textAlign: 'right' }}>Max Gain</th>
                         <th style={{ padding: '12px 16px', textAlign: 'center' }}>Target</th>
                       </tr>
@@ -847,14 +848,18 @@ export default function Dashboard() {
                         <tr key={b.id} style={{ borderTop: '1px solid rgba(255,255,255,0.03)', color: '#e2e8f0' }}>
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontWeight: 600 }}>{b.entryDate}</div>
-                            <div style={{ color: '#64748b', fontSize: 11 }}>{new Date(b.entryTime).toLocaleTimeString()}</div>
                           </td>
                           <td style={{ padding: '12px 16px' }}>
                             <span style={{ color: '#f0f4ff', fontWeight: 800, marginRight: 8 }}>{b.ticker}</span>
                             <span style={{ color: b.signal === 'BUY' ? '#4ade80' : '#f87171', fontWeight: 600 }}>{b.signal}</span>
                           </td>
+                          <td style={{ padding: '12px 16px', color: '#94a3b8' }}>
+                            {new Date(b.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#4ade80' }}>
+                            {b.exitTime ? new Date(b.exitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          </td>
                           <td style={{ padding: '12px 16px' }}>${b.entryPremium.toFixed(2)}</td>
-                          <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>${b.peakPremium.toFixed(2)}</td>
                           <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: b.maxGainPct >= 10 ? '#4ade80' : '#fca5a5' }}>
                             +{b.maxGainPct.toFixed(1)}%
                           </td>
@@ -926,11 +931,11 @@ export default function Dashboard() {
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73' }}>ENTRY</div>
+                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>ENTRY @ {new Date(s.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                            <div style={{ fontSize: 14, fontWeight: 700 }}>${s.entryPremium.toFixed(2)}</div>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73' }}>PEAK</div>
+                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>SELL @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
                            <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e' }}>${s.peakPremium.toFixed(2)}</div>
                         </div>
                       </div>
