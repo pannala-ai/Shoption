@@ -366,7 +366,7 @@ export function evaluateQuantitativeSetup(
     signal = isBullishVwapCross ? 'BUY' : 'SELL';
     
     // Calculate synthetic grade strictly off exact structural momentum triggers (must scale 90+)
-    strength = Math.round(90 + (optionsVolOIRatio - 1.2) * 5 + Math.abs(change) * 2);
+    strength = Math.round(92 + (optionsVolOIRatio - 1.2) * 10 + Math.abs(change) * 2);
     strength = Math.min(99, Math.max(90, strength));
   } else {
     // Drop sub-par setups directly to NONE

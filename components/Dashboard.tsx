@@ -637,16 +637,34 @@ export default function Dashboard() {
         <div style={{ flex: 1 }} />
         {scanning && <span style={{ fontSize: 11, color: '#6366f1' }}>⟳ Scanning...</span>}
         {lastScan && <span style={{ fontSize: 11, color: '#334155' }}>Updated {lastScan}</span>}
-        <select 
-          value={tz} 
-          onChange={e => setTz(e.target.value)}
-          style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '2px 8px', fontSize: 11, outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-        >
-          <option value="America/New_York">EST</option>
-          <option value="America/Chicago">CST</option>
-          <option value="America/Denver">MST</option>
-          <option value="America/Los_Angeles">PST</option>
-        </select>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <select 
+            value={tz} 
+            onChange={e => setTz(e.target.value)}
+            style={{ 
+              appearance: 'none',
+              background: 'rgba(255,255,255,0.03)', 
+              color: '#94a3b8', 
+              border: '1px solid rgba(255,255,255,0.08)', 
+              borderRadius: 8, 
+              padding: '4px 28px 4px 12px', 
+              fontSize: 11, 
+              fontWeight: 700,
+              outline: 'none', 
+              cursor: 'pointer', 
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+          >
+            <option value="America/New_York">New York (EST)</option>
+            <option value="America/Chicago">Chicago (CST)</option>
+            <option value="America/Denver">Denver (MST)</option>
+            <option value="America/Los_Angeles">L.A. (PST)</option>
+          </select>
+          <div style={{ position: 'absolute', right: 10, pointerEvents: 'none', fontSize: 8, color: '#475569' }}>▼</div>
+        </div>
         <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{time}</span>
       </div>
 
@@ -854,10 +872,10 @@ export default function Dashboard() {
                             <span style={{ color: b.signal === 'BUY' ? '#4ade80' : '#f87171', fontWeight: 600 }}>{b.signal}</span>
                           </td>
                           <td style={{ padding: '12px 16px', color: '#94a3b8' }}>
-                            {new Date(b.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(b.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}
                           </td>
                           <td style={{ padding: '12px 16px', color: '#4ade80' }}>
-                            {b.exitTime ? new Date(b.exitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                            {b.exitTime ? new Date(b.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}
                           </td>
                           <td style={{ padding: '12px 16px' }}>${b.entryPremium.toFixed(2)}</td>
                           <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: b.maxGainPct >= 10 ? '#4ade80' : '#fca5a5' }}>
@@ -931,11 +949,11 @@ export default function Dashboard() {
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>ENTRY @ {new Date(s.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>ENTRY @ {new Date(s.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</div>
                            <div style={{ fontSize: 14, fontWeight: 700 }}>${s.entryPremium.toFixed(2)}</div>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>SELL @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
+                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>SELL @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
                            <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e' }}>${s.peakPremium.toFixed(2)}</div>
                         </div>
                       </div>

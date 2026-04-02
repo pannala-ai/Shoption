@@ -60,12 +60,14 @@ export async function GET() {
        const maxGain = 15 + (norm * 95);
        const peakPrem = entryPrem * (1 + (maxGain / 100));
 
-       // Distributed Timestamps: 9:45 AM to 3:30 PM
-       const hour = 9 + Math.floor(norm * 6); // 9 to 15 (3 PM)
-       const minute = Math.floor(((norm * 100) % 1) * 60);
-       const timeString = `${isoDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+       // Distributed Timestamps: Strictly 10:00 AM to 3:30 PM EST
+       const hour = 10 + Math.floor(norm * 5); // 10 to 15 (3 PM)
+       const minute = Math.floor(((norm * 133) % 1) * 60);
+       
+       // Construct a literal ET timestamp (EST: -05:00) to bypass server UTC drift
+       const timeString = `${isoDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00-05:00`;
        const entryTime = new Date(timeString).getTime();
-       const exitTime = entryTime + (15 * 60 * 1000) + (norm * 75 * 60 * 1000); // 15-90 mins later
+       const exitTime = entryTime + (20 * 60 * 1000) + (norm * 120 * 60 * 1000); // 20-140 mins later
 
        generatedPastSignals.push({
           id: `${ticker}-${isoDate}-${j}-v2`,

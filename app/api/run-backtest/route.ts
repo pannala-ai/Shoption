@@ -105,6 +105,13 @@ export async function POST() {
         for (let i = 20; i < barsLen; i++) {
             const bar = bars[i];
             
+            // Enforce Market Hours strictly (10:00 AM EST to 3:30 PM EST)
+            const barDate = new Date(bar.t);
+            const nyTime = new Date(barDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+            const absoluteMins = nyTime.getHours() * 60 + nyTime.getMinutes();
+
+            if (absoluteMins < 600 || absoluteMins > 930) continue;
+
             // Debug Accumulation
             globalBarsChecked++;
             globalSumVol += bar.v;
