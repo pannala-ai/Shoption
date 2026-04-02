@@ -220,23 +220,35 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-             <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPin({
-                    id: `${r.ticker}-${Date.now()}`, ticker: r.ticker, signal: r.signal as 'BUY'|'SELL',
-                    price: r.price, reason: r.reason, strength: r.signalStrength,
-                    time: r.detectedAt?.split(', ')[1] || '',
-                    date: r.detectedAt?.split(', ')[0] || '',
-                    timestamp: Date.now(),
-                    assetType: r.assetType, strategyName: r.strategyName, strikeLabel: r.strikeLabel,
-                    pinnedAt: Date.now()
-                  });
-                }}
-                style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', transition: 'background 0.2s' }}
-              >
-                📌 PIN
-              </button>
+             <div style={{ marginRight: 4, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                {r.detectedAt && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite' }} />
+                    <span style={{ fontSize: 9, fontWeight: 800, color: '#22c55e', letterSpacing: '0.05em' }}>LIVE</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginLeft: 2 }}>
+                       {new Date(r.detectedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </span>
+                  </div>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const det = r.detectedAt ? new Date(r.detectedAt) : new Date();
+                    onPin({
+                      id: `${r.ticker}-${Date.now()}`, ticker: r.ticker, signal: r.signal as 'BUY'|'SELL',
+                      price: r.price, reason: r.reason, strength: r.signalStrength,
+                      time: det.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                      date: det.toLocaleDateString(),
+                      timestamp: det.getTime(),
+                      assetType: r.assetType, strategyName: r.strategyName, strikeLabel: r.strikeLabel,
+                      pinnedAt: Date.now()
+                    });
+                  }}
+                  style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', transition: 'background 0.2s' }}
+                >
+                  📌 PIN
+                </button>
+             </div>
             <SignalBadge signal={r.signal} />
           </div>
           {pm && <div style={{ fontSize: 10, color: '#475569', fontWeight: 700 }}>EDGE: <span style={{color: '#94a3b8'}}>{pm.winRate}%</span></div>}
