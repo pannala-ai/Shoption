@@ -132,10 +132,10 @@ export async function POST() {
             const vSMA = prevVolSum / 20;
 
             // Step 2: Liquidity Check (Minimal requirement)
-            if (bar.v <= 2) continue;
+            if (bar.v <= 5) continue;
             
-            // Step 3: Relative Volume (RVOL) > 1.1x (Any baseline momentum expansion)
-            if (bar.v <= 1.1 * vSMA) continue;
+            // Step 3: Relative Volume (RVOL) > 1.5x (Institutional Breakout Strength)
+            if (bar.v <= 1.5 * vSMA) continue;
             
             // Step 4: Price Action - Pure Upside Structural Flow
             const range = bar.h - bar.l;
@@ -143,7 +143,7 @@ export async function POST() {
             
             // Must simply hold a baseline green structural expansion candle
             const isGreen = bar.c > bar.o;
-            const holdsTopRange = bar.c >= bar.l + (range * 0.30);
+            const holdsTopRange = bar.c >= bar.l + (range * 0.40);
             
             if (!isGreen || !holdsTopRange) continue;
 

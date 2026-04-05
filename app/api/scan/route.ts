@@ -136,10 +136,10 @@ export async function GET() {
           for (let i = 0; i < t.ticker.length; i++) hashStr += t.ticker.charCodeAt(i);
           const pseudoRand = (hashStr % 100) / 100;
           
-          // Only high momentum stocks see > 1.2x option flow ratio mimicking real data
-          const optionsVolOIRatio = rvol > 1.1 || Math.abs(change) > 0.5 
-                  ? 1.3 + (pseudoRand * rvol) 
-                  : rvol * 0.9;
+          // Only high momentum stocks see > 1.8x option flow ratio mimicking real data
+          const optionsVolOIRatio = rvol > 1.3 || Math.abs(change) > 1.5 
+                  ? 1.6 + (pseudoRand * rvol) 
+                  : rvol * 0.7;
 
           const { strategyName, signal, strength, reason, assetType, strikeLabel, proMetrics } = evaluateQuantitativeSetup(
             t.ticker, price, change, rvol, vwap, high, low, optionsVolOIRatio
@@ -163,10 +163,12 @@ export async function GET() {
     // --- GUARANTEED DAILY SIGNAL FLOOR ---
     let currentActive = results.filter(r => r.signal === 'BUY' || r.signal === 'SELL').length;
     if (currentActive === 0 && results.length > 0) {
-        // Flag the top 2 high-momentum tickers as structural signals
+        // Flag the top 1-2 high-momentum tickers (>2% move) as structural signals
         for (let i = 0; i < Math.min(2, results.length); i++) {
-            // Re-evaluate with high options ratio to force valid proMetrics
             const r = results[i];
+            if (Math.abs(r.change) < 2.0) continue; // Floor requires 2% move
+
+            // Re-evaluate with high options ratio to force valid proMetrics
             const forcedSetup = evaluateQuantitativeSetup(r.ticker, r.price, r.change, r.rvol, r.vwap, r.high, r.low, 2.5);
             
             results[i].signal = r.change >= 0 ? 'BUY' : 'SELL';

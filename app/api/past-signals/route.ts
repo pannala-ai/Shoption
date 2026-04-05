@@ -35,9 +35,9 @@ export async function GET() {
        // Using prime multipliers to ensure divergence
        const tickerHash = (daySeed * 31 + j * 17 + ticker.charCodeAt(0)) % 10000;
        
-       // Sieve: Show ~50-70% of chain depending on day seed
+       // Sieve: Strictly limit frequency to ~2 symbols per day (80% rejection rate)
        const gate = (daySeed + j) % 10;
-       if (gate > 6) continue; 
+       if (gate < 8) continue; 
        
        // PRNG
        const rng = (tickerHash * 9301 + 49297) % 233280;
@@ -56,21 +56,21 @@ export async function GET() {
        const spot = baseSpot + (norm * 20 - 10);
        const entryPrem = 2.5 + (norm * 12);
        
-       // Max Gain Variety: 15% to 110%
-       const maxGain = 15 + (norm * 95);
-       const peakPrem = entryPrem * (1 + (maxGain / 100));
+       // Realistic Outcome Simulation (75% Win / 25% Loss)
+       const isSuccess = (tickerHash % 4) !== 0; 
+       const maxGain = isSuccess ? (15 + (norm * 85)) : -(10 + (norm * 30));
+       const peakPrem = isSuccess ? entryPrem * (1 + (maxGain / 100)) : entryPrem * 1.05; // Peak shortly before stop-out
 
        // Distributed Timestamps: Strictly 10:00 AM to 3:30 PM EST
        const hour = 10 + Math.floor(norm * 5); // 10 to 15 (3 PM)
        const minute = Math.floor(((norm * 133) % 1) * 60);
        
-       // Construct a literal ET timestamp (EST: -05:00) to bypass server UTC drift
        const timeString = `${isoDate}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00-05:00`;
        const entryTime = new Date(timeString).getTime();
-       const exitTime = entryTime + (20 * 60 * 1000) + (norm * 120 * 60 * 1000); // 20-140 mins later
+       const exitTime = entryTime + (20 * 60 * 1000) + (norm * 120 * 60 * 1000); 
 
        generatedPastSignals.push({
-          id: `${ticker}-${isoDate}-${j}-v2`,
+          id: `${ticker}-${isoDate}-${j}-v3`,
           ticker,
           signal,
           entryTime,
@@ -81,11 +81,11 @@ export async function GET() {
           peakPremium: peakPrem,
           entryPremium: entryPrem,
           maxGainPct: maxGain,
-          hitTarget: 1, // All past signals in this view were "successes"
+          hitTarget: isSuccess ? 1 : 0, 
           strength: 92 + Math.floor(norm * 7),
           reason: isCall 
-            ? 'Institutional Bullish Sweep (RVOL > 1.8x, Heavy Out-of-Money Flow)' 
-            : 'Unusual Put Volume (Whale Entry detected at Resistance)',
+            ? 'Institutional Bullish Sweep (High RVOL + VWAP Support)' 
+            : 'Unusual Put Volume (Trend Breakdown + Resistance Rejection)',
        });
     }
   }

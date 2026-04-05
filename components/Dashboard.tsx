@@ -965,14 +965,14 @@ export default function Dashboard() {
                            <div style={{ fontSize: 14, fontWeight: 700 }}>${s.entryPremium.toFixed(2)}</div>
                         </div>
                         <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>SELL @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
-                           <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e' }}>${s.peakPremium.toFixed(2)}</div>
+                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>{s.hitTarget ? 'SELL' : 'STOP'} @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
+                           <div style={{ fontSize: 14, fontWeight: 700, color: s.hitTarget ? '#22c55e' : '#f43f5e' }}>${s.peakPremium.toFixed(2)}</div>
                         </div>
                       </div>
 
                       <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <span style={{ fontSize: 12, fontWeight: 800, color: s.maxGainPct >= 10 ? '#22c55e' : '#64748b' }}>
-                           MAX GAIN: +{s.maxGainPct.toFixed(1)}%
+                         <span style={{ fontSize: 12, fontWeight: 800, color: s.hitTarget ? '#22c55e' : '#f43f5e' }}>
+                           {s.hitTarget ? 'MAX GAIN:' : 'MAX LOSS:'} {s.maxGainPct >= 0 ? '+' : ''}{s.maxGainPct.toFixed(1)}%
                          </span>
                          <span style={{ fontSize: 10, color: '#4e5d73' }}>STRENGTH: {s.strength}%</span>
                       </div>
