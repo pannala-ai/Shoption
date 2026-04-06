@@ -36,9 +36,9 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
     <motion.div
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       style={{
-        background: '#0B192C',
-        border: `1px solid #142E4A`,
-        borderRadius: 16, padding: '16px', position: 'relative', overflow: 'hidden',
+        background: '#1A365D',
+        border: `1px solid rgba(255, 255, 255, 0.15)`,
+        borderRadius: 24, padding: '24px', position: 'relative', overflow: 'hidden',
       }}
     >
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -297,7 +297,7 @@ export default function Dashboard() {
               {loading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
                   {[...Array(12)].map((_, i) => (
-                    <div key={i} style={{ height: 220, borderRadius: 16, background: '#0B192C', border: '1px solid #142E4A' }} />
+                    <div key={i} style={{ height: 220, borderRadius: 24, background: '#1A365D', border: '1px solid rgba(255, 255, 255, 0.15)' }} />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
@@ -330,9 +330,9 @@ export default function Dashboard() {
                     return (
                       <div key={s.id}
                         style={{
-                          background: '#0B192C',
-                          border: `1px solid #142E4A`,
-                          borderRadius: 16, padding: 20, position: 'relative', overflow: 'hidden',
+                          background: '#1A365D',
+                          border: `1px solid rgba(255, 255, 255, 0.15)`,
+                          borderRadius: 24, padding: 24, position: 'relative', overflow: 'hidden',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
@@ -358,8 +358,8 @@ export default function Dashboard() {
             <motion.div key="testing" style={{ height: '100%', overflowY: 'auto', padding: '0 24px 24px' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               <div style={{
-                padding: '24px', borderRadius: 16, marginBottom: 24,
-                background: '#0B192C', border: '1px solid #142E4A',
+                padding: '28px', borderRadius: 24, marginBottom: 24,
+                background: '#1A365D', border: '1px solid rgba(255, 255, 255, 0.15)',
                 display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <div>
@@ -388,7 +388,7 @@ export default function Dashboard() {
               </div>
 
                <div style={{
-                  background: '#0B192C', borderRadius: 12, border: '1px solid #142E4A', overflow: 'hidden'
+                  background: '#1A365D', borderRadius: 24, border: '1px solid rgba(255, 255, 255, 0.15)', overflow: 'hidden'
                 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
                     <thead>

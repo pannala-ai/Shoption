@@ -34,10 +34,10 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.22 }}
       style={{
-        background: '#0B192C', // Deep Navy
-        border: `1px solid ${isNew ? '#604CC3' : '#1A2A40'}`, // Trust Blue or Generative Purple
-        borderRadius: 12,
-        padding: 20,
+        background: '#1A365D', // Lighter navy card
+        border: `1px solid ${isNew ? '#604CC3' : 'rgba(255, 255, 255, 0.15)'}`,
+        borderRadius: 24, // heavily rounded corners
+        padding: 24,
         color: '#E2E8F0',
         display: 'flex',
         flexDirection: 'column',
@@ -118,7 +118,7 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       </div>
 
       {/* CONFIDENCE SCORE GAUGE */}
-      <div style={{ background: '#09264A', borderRadius: 8, padding: 16, border: '1px solid #142E4A' }}>
+      <div style={{ background: 'rgba(0, 0, 0, 0.2)', borderRadius: 12, padding: 16, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Cpu size={14} color="#604CC3" />
@@ -146,19 +146,19 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {pm && (
           <>
-            <div style={{ background: '#09264A', padding: '10px 12px', borderRadius: 6, border: '1px solid #142E4A' }}>
+            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>RSI Momentum</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>{pm.rsi} / 100</div>
             </div>
-            <div style={{ background: '#09264A', padding: '10px 12px', borderRadius: 6, border: '1px solid #142E4A' }}>
+            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>GEX Regime</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>{r.gexRegime || 'NORMAL'}</div>
             </div>
-            <div style={{ background: '#09264A', padding: '10px 12px', borderRadius: 6, border: '1px solid #142E4A' }}>
+            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>Stop Loss</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>${pm.stopLoss.toFixed(2)}</div>
             </div>
-             <div style={{ background: '#09264A', padding: '10px 12px', borderRadius: 6, border: '1px solid #142E4A' }}>
+             <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>Take Profit</div>
                <div style={{ fontSize: 13, fontWeight: 600, color: '#2081F9' }}>${pm.takeProfit.toFixed(2)}</div>
             </div>
@@ -168,8 +168,8 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
 
       {/* NATURAL LANGUAGE SETUP SUMMARY */}
       <div style={{ 
-        background: '#09264A', 
-        borderLeft: '3px solid #604CC3', 
+        background: 'rgba(255, 255, 255, 0.05)', 
+        borderLeft: '4px solid #604CC3', 
         padding: '12px 14px', 
         borderRadius: '0 6px 6px 0',
         fontSize: 13,
