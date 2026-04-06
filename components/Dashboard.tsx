@@ -252,7 +252,7 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
                   }}
                   style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', transition: 'background 0.2s' }}
                 >
-                  📌 PIN
+                  PIN
                 </button>
              </div>
             <SignalBadge signal={r.signal} />
@@ -298,7 +298,7 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
                <div style={{ display: 'flex', justifyContent: 'space-between', gridColumn: '1 / -1', marginTop: 6, padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>
                  <span style={{ fontSize: 10, color: '#64748b' }}>GEX:
                    <span style={{ marginLeft: 3, fontWeight: 700, color: r.gexRegime === 'SQUEEZE' ? '#f59e0b' : r.gexRegime === 'PINNED' ? '#818cf8' : '#94a3b8' }}>
-                     {r.gexRegime === 'SQUEEZE' ? '⚡ SQUEEZE' : r.gexRegime === 'PINNED' ? '📌 PINNED' : '● NORMAL'}
+                     {r.gexRegime === 'SQUEEZE' ? 'SQUEEZE' : r.gexRegime === 'PINNED' ? 'PINNED' : 'NORMAL'}
                    </span>
                  </span>
                  <span style={{ fontSize: 10, color: '#64748b' }}>IV:
@@ -325,7 +325,7 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
           padding: '8px 10px', borderRadius: 8,
           background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
         }}>
-          {r.strategyName && <span style={{ fontWeight: 800, color: '#f8fafc', marginRight: 6 }}>⚙️ {r.strategyName}</span>}
+          {r.strategyName && <span style={{ fontWeight: 800, color: '#f8fafc', marginRight: 6 }}>Strategy: {r.strategyName} —</span>}
           {r.reason}
         </div>
       )}
@@ -410,7 +410,7 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
       
       <div style={{ display: 'flex', alignItems: 'center', marginTop: 12, justifyContent: 'space-between' }}>
         <button onClick={() => onPin({ ...t, pinnedAt: Date.now() })} style={{ padding: '4px 10px', fontSize: 10, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer' }}>
-          📌 PIN
+          TRACK
         </button>
         {pnlHtml}
       </div>
@@ -494,6 +494,7 @@ export default function Dashboard() {
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [backtests, setBacktests] = useState<any[]>([]);
   const [pastSignals, setPastSignals] = useState<any[]>([]);
+  const [pinnedTrades, setPinnedTrades] = useState<PinnedTrade[]>([]);
   const [earningsSignals, setEarningsSignals] = useState<any[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(true);
   const [runningBacktest, setRunningBacktest] = useState(false);
@@ -522,15 +523,8 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [tz]);
 
-  // Scanner fetch
+  // Scanner fetch — always runs, synthetic fallback data fires when market closed
   const fetchScan = useCallback(async () => {
-    // Cut API drainage during offline hours entirely.
-    if (mkt.label === 'Closed') {
-      setLoading(false);
-      setScanning(false);
-      return;
-    }
-    
     setScanning(true);
     try {
       const r = await fetch('/api/scan');
@@ -838,7 +832,7 @@ export default function Dashboard() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 16 }}>
                   <AnimatePresence>
-                    {filtered.map(r => <SignalCard key={r.ticker} r={r} isNew={newTickers.has(r.ticker)} onPin={() => {}} />)}
+                    {filtered.map(r => <SignalCard key={r.ticker + r.signal} r={r} isNew={newTickers.has(r.ticker)} onPin={(trade) => setPinnedTrades(prev => { const exists = prev.find(p => p.ticker === trade.ticker && p.signal === trade.signal); return exists ? prev : [trade, ...prev].slice(0, 50); })} />)}
                   </AnimatePresence>
                 </div>
               )}

@@ -71,36 +71,39 @@ function computeContext(
   dealerBias: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   ivZScore: number;
   squeezeProbability: number;
+  ivBaseline: number; // annualized IV decimal for expected move calculation
 } {
-  // GEX regime: derived from RVOL x absolute move combination
-  // High RVOL + big move = dealers being squeezed (short gamma forced to hedge)
-  // High RVOL + tiny move = price being pinned to gamma wall
   const absChange = Math.abs(change);
+
+  // GEX regime derived from RVOL x absolute move.
+  // High RVOL + large move = dealers being squeezed (short gamma, forced to hedge).
+  // High RVOL + minimal move = price pinned to gamma wall (dealers long gamma).
   const gexRegime: 'PINNED' | 'NORMAL' | 'SQUEEZE' =
     rvol > 2.8 && absChange > 3.0 ? 'SQUEEZE' :
     rvol > 1.8 && absChange < 0.8 ? 'PINNED' : 'NORMAL';
 
-  // Squeeze probability: combination of RVOL and momentum
   const squeezeProbability = gexRegime === 'SQUEEZE'
     ? Math.min(95, Math.round(rvol * 14 + absChange * 4))
     : gexRegime === 'PINNED' ? Math.round(rvol * 6)
     : Math.round(rvol * 3);
 
-  // IV regime: compare realized daily vol proxy to per-ticker normal IV baseline
-  // Daily move converted to annualized vol: |change%| × 16 (1/sqrt(252) inverse)
+  // IV regime: realized vol proxy vs per-ticker baseline.
+  // Daily move annualized: |change%| x 16 (inverse of 1/sqrt(252)).
+  const ivBaselinePct = IV_BASELINES[ticker] ?? 45;
   const realizedVolProxy = absChange * 16;
-  const ivBaseline = IV_BASELINES[ticker] ?? 45;
-  const ivZScore = parseFloat(((realizedVolProxy - ivBaseline) / (ivBaseline * 0.30)).toFixed(2));
+  const ivZScore = parseFloat(((realizedVolProxy - ivBaselinePct) / (ivBaselinePct * 0.30)).toFixed(2));
   const ivRegime: 'IV_RICH' | 'FAIR' | 'IV_CHEAP' =
     ivZScore > 2.0 ? 'IV_RICH' : ivZScore < -2.0 ? 'IV_CHEAP' : 'FAIR';
 
-  // Dealer bias: in squeeze, bias follows price relative to where gamma is densest
-  // (approximated by change direction); in pinned, neutral; otherwise directional
+  // Dealer bias: direction where mechanical delta hedging pushes price.
   const dealerBias: 'BULLISH' | 'BEARISH' | 'NEUTRAL' =
     gexRegime === 'PINNED' ? 'NEUTRAL' :
     change > 0 ? 'BULLISH' : 'BEARISH';
 
-  return { gexRegime, ivRegime, dealerBias, ivZScore, squeezeProbability };
+  // ivBaseline as decimal for Filter 3 strike selection (e.g. 45 -> 0.45)
+  const ivBaseline = ivBaselinePct / 100;
+
+  return { gexRegime, ivRegime, dealerBias, ivZScore, squeezeProbability, ivBaseline };
 }
 
 export async function GET() {
@@ -208,24 +211,39 @@ export async function GET() {
       ((r.signal === 'BUY' || r.signal === 'SELL') ? 1000 : 0) + r.signalStrength + (r.squeezeProbability ?? 0) * 0.1;
     results.sort((a, b) => score(b) - score(a));
 
-    // Guaranteed signal floor (at least 1 active signal during market hours)
+    // Guaranteed signal floor — dynamic threshold fallback.
+    // If no tickers cleared the strict sweep filter, lower thresholds and re-evaluate
+    // the best available setup. At least one signal fires per session.
     let currentActive = results.filter(r => r.signal === 'BUY' || r.signal === 'SELL').length;
     if (currentActive === 0 && results.length > 0) {
-      for (let i = 0; i < Math.min(2, results.length); i++) {
-        const r = results[i];
-        if (Math.abs(r.change) < 2.0) continue;
+      // Sort by absolute change to find most actionable ticker
+      const candidates = [...results].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+      for (let i = 0; i < Math.min(8, candidates.length); i++) {
+        const r = candidates[i];
+        // Only skip tickers with truly flat/zero price
+        if (r.price <= 0) continue;
         const ctx = computeContext(r.ticker, r.rvol, r.change, r.price);
-        const forcedSetup = evaluateQuantitativeSetup(r.ticker, r.price, r.change, r.rvol, r.vwap, r.high, r.low, 2.5, ctx);
-        results[i].signal = r.change >= 0 ? 'BUY' : 'SELL';
-        results[i].signalStrength = 91;
-        results[i].reason = 'Structural Momentum Leader (Daily Baseline Signal)';
-        results[i].proMetrics = forcedSetup.proMetrics;
-        results[i].strategyName = forcedSetup.strategyName;
-        results[i].strikeLabel = forcedSetup.strikeLabel;
-        results[i].gexRegime   = forcedSetup.gexRegime;
-        results[i].ivRegime    = forcedSetup.ivRegime;
-        results[i].dealerBias  = forcedSetup.dealerBias;
+        const fallbackSetup = evaluateQuantitativeSetup(
+          r.ticker, r.price, r.change !== 0 ? r.change : 0.5, r.rvol, r.vwap, r.high, r.low,
+          2.0, // Force sweep confirmation threshold pass with optionsVolOIRatio=2.0
+          ctx,
+          true // _dynamicFallback: relaxes thresholds, adds disclosure tag to reason
+        );
+        if (fallbackSetup.signal === 'NONE') continue;
+        // Find this ticker in results by ticker name
+        const resultIdx = results.findIndex(res => res.ticker === r.ticker);
+        if (resultIdx === -1) continue;
+        results[resultIdx].signal         = fallbackSetup.signal;
+        results[resultIdx].signalStrength = fallbackSetup.strength;
+        results[resultIdx].reason         = fallbackSetup.reason;
+        results[resultIdx].proMetrics     = fallbackSetup.proMetrics;
+        results[resultIdx].strategyName   = fallbackSetup.strategyName;
+        results[resultIdx].strikeLabel    = fallbackSetup.strikeLabel;
+        results[resultIdx].gexRegime      = fallbackSetup.gexRegime;
+        results[resultIdx].ivRegime       = fallbackSetup.ivRegime;
+        results[resultIdx].dealerBias     = fallbackSetup.dealerBias;
         currentActive++;
+        if (currentActive >= 2) break; // Always surface at least 2 signals via fallback
       }
     }
 
