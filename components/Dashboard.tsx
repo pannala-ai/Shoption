@@ -932,53 +932,96 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-                  {pastSignals.map((s: any) => (
-                    <motion.div
-                      key={s.id}
-                      whileHover={{ y: -2 }}
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.4) 100%)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 16,
-                        padding: 20,
-                        position: 'relative'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <div>
-                           <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{s.ticker}</span>
-                           <div style={{ fontSize: 11, color: '#64748b' }}>{s.entryDate}</div>
-                        </div>
-                        <span style={{ 
-                          padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 800,
-                          background: s.signal === 'BUY' ? 'rgba(34,197,94,0.1)' : 'rgba(244,63,94,0.1)',
-                          color: s.signal === 'BUY' ? '#22c55e' : '#f43f5e',
-                          border: `1px solid ${s.signal === 'BUY' ? '#22c55e44' : '#f43f5e44'}`
-                        }}>
-                          {s.signal}
-                        </span>
-                      </div>
+                   {pastSignals.map((s: any) => {
+                     const isWin = s.hitTarget === 1;
+                     const isBuy = s.signal === 'BUY';
+                     const accentColor = isBuy ? '#22c55e' : '#f43f5e';
+                     const outcomeColor = isWin ? '#22c55e' : '#f43f5e';
+                     return (
+                     <motion.div
+                       key={s.id}
+                       whileHover={{ y: -2 }}
+                       style={{
+                         background: isBuy
+                           ? 'linear-gradient(160deg, rgba(34,197,94,0.05) 0%, rgba(5,5,15,0.96) 70%)'
+                           : 'linear-gradient(160deg, rgba(244,63,94,0.05) 0%, rgba(5,5,15,0.96) 70%)',
+                         border: `1px solid ${accentColor}33`,
+                         borderTop: `2px solid ${accentColor}`,
+                         borderRadius: 16,
+                         padding: 20,
+                         position: 'relative',
+                         boxShadow: `0 8px 32px -12px ${accentColor}18`,
+                       }}
+                     >
+                       {/* Glow orb */}
+                       <div style={{ position: 'absolute', top: -40, right: -40, width: 130, height: 130, borderRadius: '50%', background: `radial-gradient(circle, ${accentColor}12, transparent 70%)`, pointerEvents: 'none' }} />
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>ENTRY @ {new Date(s.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</div>
-                           <div style={{ fontSize: 14, fontWeight: 700 }}>${s.entryPremium.toFixed(2)}</div>
-                        </div>
-                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8 }}>
-                           <div style={{ fontSize: 10, color: '#4e5d73', marginBottom: 4 }}>{s.hitTarget ? 'SELL' : 'STOP'} @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
-                           <div style={{ fontSize: 14, fontWeight: 700, color: s.hitTarget ? '#22c55e' : '#f43f5e' }}>${s.peakPremium.toFixed(2)}</div>
-                        </div>
-                      </div>
+                       {/* Header row */}
+                       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                         <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{s.ticker}</span>
+                              <span style={{
+                                fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4,
+                                background: isBuy ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)',
+                                color: accentColor, border: `1px solid ${accentColor}33`
+                              }}>{isBuy ? '↑ BUY' : '↓ SELL'}</span>
+                              {s.strikeLabel && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}>
+                                  {s.strikeLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{s.entryDate}</div>
+                         </div>
+                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                           <span style={{
+                             padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 800,
+                             background: isWin ? 'rgba(34,197,94,0.12)' : 'rgba(244,63,94,0.12)',
+                             color: outcomeColor,
+                             border: `1px solid ${outcomeColor}33`
+                           }}>
+                             {isWin ? '✓ WIN' : '✗ LOSS'}
+                           </span>
+                           <span style={{ fontSize: 9, color: '#334155', fontWeight: 700 }}>STRENGTH: {s.strength}%</span>
+                         </div>
+                       </div>
 
-                      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <span style={{ fontSize: 12, fontWeight: 800, color: s.hitTarget ? '#22c55e' : '#f43f5e' }}>
-                           {s.hitTarget ? 'MAX GAIN:' : 'MAX LOSS:'} {s.maxGainPct >= 0 ? '+' : ''}{s.maxGainPct.toFixed(1)}%
-                         </span>
-                         <span style={{ fontSize: 10, color: '#4e5d73' }}>STRENGTH: {s.strength}%</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                       {/* Entry / Exit Grid */}
+                       <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: 9, color: '#4e5d73', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ENTRY @ {new Date(s.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: '#f8fafc' }}>${s.entryPremium.toFixed(2)}</div>
+                            <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>OPTION PREMIUM</div>
+                         </div>
+                         <div style={{ background: isWin ? 'rgba(34,197,94,0.05)' : 'rgba(244,63,94,0.05)', padding: '8px 10px', borderRadius: 8, border: `1px solid ${outcomeColor}22` }}>
+                            <div style={{ fontSize: 9, color: '#4e5d73', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isWin ? 'SELL' : 'STOP'} @ {s.exitTime ? new Date(s.exitTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' }) : '--:--'}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: outcomeColor }}>${s.peakPremium.toFixed(2)}</div>
+                            <div style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>EXIT PREMIUM</div>
+                         </div>
+                       </div>
+
+                       {/* P&L row */}
+                       <div style={{ position: 'relative', marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: isWin ? 'rgba(34,197,94,0.07)' : 'rgba(244,63,94,0.07)', border: `1px solid ${outcomeColor}22` }}>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: outcomeColor }}>
+                            {isWin ? '🔥 MAX GAIN:' : '🛑 MAX LOSS:'}
+                          </span>
+                          <span style={{ fontSize: 14, fontWeight: 900, color: outcomeColor }}>
+                            {s.maxGainPct >= 0 ? '+' : ''}{s.maxGainPct.toFixed(1)}%
+                          </span>
+                       </div>
+
+                       {/* Strategy reason */}
+                       {s.reason && (
+                         <div style={{ position: 'relative', marginTop: 8, fontSize: 10, color: '#94a3b8', lineHeight: 1.5, padding: '6px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                           {s.strategyName && <span style={{ fontWeight: 700, color: '#e2e8f0', marginRight: 4 }}>⚙️ {s.strategyName} —</span>}
+                           {s.reason}
+                         </div>
+                       )}
+                     </motion.div>
+                     );
+                   })}
+                 </div>
               )}
             </motion.div>
           )}
