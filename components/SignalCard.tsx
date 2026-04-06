@@ -34,15 +34,16 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.22 }}
       style={{
-        background: '#1A365D', // Lighter navy card
-        border: `1px solid ${isNew ? '#604CC3' : 'rgba(255, 255, 255, 0.15)'}`,
-        borderRadius: 24, // heavily rounded corners
+        background: 'rgba(255, 255, 255, 0.04)',
+        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        border: `1px solid ${isNew ? '#604CC3' : 'rgba(255, 255, 255, 0.1)'}`,
+        borderRadius: 24, 
         padding: 24,
         color: '#E2E8F0',
         display: 'flex',
         flexDirection: 'column',
         gap: 16,
-        boxShadow: isNew ? '0 0 20px rgba(96, 76, 195, 0.15)' : 'none',
+        boxShadow: isNew ? '0 0 20px rgba(96, 76, 195, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.3)',
         position: 'relative',
         overflow: 'hidden'
       }}

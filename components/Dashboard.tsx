@@ -36,9 +36,11 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
     <motion.div
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       style={{
-        background: '#1A365D',
-        border: `1px solid rgba(255, 255, 255, 0.15)`,
+        background: 'rgba(255, 255, 255, 0.04)',
+        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+        border: `1px solid rgba(255, 255, 255, 0.1)`,
         borderRadius: 24, padding: '24px', position: 'relative', overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
       }}
     >
       <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -47,7 +49,7 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
             <span style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>{t.ticker}</span>
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#f8fafc', marginTop: 4 }}>
-            Entry: ${t.price.toFixed(2)}
+            Entry: {t.price ? `$${t.price.toFixed(2)}` : 'N/A'}
           </div>
         </div>
 
@@ -297,7 +299,7 @@ export default function Dashboard() {
               {loading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
                   {[...Array(12)].map((_, i) => (
-                    <div key={i} style={{ height: 220, borderRadius: 24, background: '#1A365D', border: '1px solid rgba(255, 255, 255, 0.15)' }} />
+                    <div key={i} style={{ height: 220, borderRadius: 24, background: 'rgba(255, 255, 255, 0.04)', backdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)' }} />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
@@ -330,8 +332,10 @@ export default function Dashboard() {
                     return (
                       <div key={s.id}
                         style={{
-                          background: '#1A365D',
-                          border: `1px solid rgba(255, 255, 255, 0.15)`,
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+                          border: `1px solid rgba(255, 255, 255, 0.1)`,
+                          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                           borderRadius: 24, padding: 24, position: 'relative', overflow: 'hidden',
                         }}
                       >
@@ -359,7 +363,8 @@ export default function Dashboard() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
               <div style={{
                 padding: '28px', borderRadius: 24, marginBottom: 24,
-                background: '#1A365D', border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                 display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <div>
@@ -388,7 +393,8 @@ export default function Dashboard() {
               </div>
 
                <div style={{
-                  background: '#1A365D', borderRadius: 24, border: '1px solid rgba(255, 255, 255, 0.15)', overflow: 'hidden'
+                  background: 'rgba(255, 255, 255, 0.04)', borderRadius: 24, border: '1px solid rgba(255, 255, 255, 0.1)', 
+                  backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', overflow: 'hidden'
                 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
                     <thead>
