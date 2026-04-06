@@ -47,7 +47,7 @@ interface ScanResult {
   vwap: number;
   high: number;
   low: number;
-  signal: 'BUY' | 'SELL' | 'NONE'; // Eliminated WATCH
+  signal: 'BUY' | 'SELL' | 'NONE';
   signalStrength: number;
   reason: string;
   isAfterHours?: boolean;
@@ -56,6 +56,12 @@ interface ScanResult {
   strategyName?: string;
   strikeLabel?: string;
   proMetrics?: AdvancedMetrics;
+  // v2: Dealer & IV Intelligence (from GEX/IV algorithms)
+  gexRegime?:          'PINNED' | 'NORMAL' | 'SQUEEZE';
+  ivRegime?:           'IV_RICH' | 'FAIR' | 'IV_CHEAP';
+  dealerBias?:         'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  squeezeProbability?: number;
+  ivZScore?:           number;
 }
 
 interface OptionsRow {
@@ -287,6 +293,26 @@ function SignalCard({ r, isNew, onPin }: { r: ScanResult; isNew: boolean; onPin:
                <span style={{ fontSize: 10, color: '#64748b' }}>DUR: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.durationEst}</span></span>
                <span style={{ fontSize: 10, color: '#64748b' }}>GEX: <span style={{color: '#94a3b8', fontWeight: 600}}>{pm.gex}</span></span>
              </div>
+             {/* ── Dealer Intelligence Row (v2) ── */}
+             {(r.gexRegime || r.ivRegime) && (
+               <div style={{ display: 'flex', justifyContent: 'space-between', gridColumn: '1 / -1', marginTop: 6, padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>
+                 <span style={{ fontSize: 10, color: '#64748b' }}>GEX:
+                   <span style={{ marginLeft: 3, fontWeight: 700, color: r.gexRegime === 'SQUEEZE' ? '#f59e0b' : r.gexRegime === 'PINNED' ? '#818cf8' : '#94a3b8' }}>
+                     {r.gexRegime === 'SQUEEZE' ? '⚡ SQUEEZE' : r.gexRegime === 'PINNED' ? '📌 PINNED' : '● NORMAL'}
+                   </span>
+                 </span>
+                 <span style={{ fontSize: 10, color: '#64748b' }}>IV:
+                   <span style={{ marginLeft: 3, fontWeight: 700, color: r.ivRegime === 'IV_RICH' ? '#f43f5e' : r.ivRegime === 'IV_CHEAP' ? '#22c55e' : '#94a3b8' }}>
+                     {r.ivRegime === 'IV_RICH' ? 'RICH→SELL' : r.ivRegime === 'IV_CHEAP' ? 'CHEAP→BUY' : 'FAIR'}
+                   </span>
+                 </span>
+                 <span style={{ fontSize: 10, color: '#64748b' }}>DEALER:
+                   <span style={{ marginLeft: 3, fontWeight: 700, color: r.dealerBias === 'BULLISH' ? '#22c55e' : r.dealerBias === 'BEARISH' ? '#f43f5e' : '#94a3b8' }}>
+                     {r.dealerBias === 'BULLISH' ? '↑ BUY' : r.dealerBias === 'BEARISH' ? '↓ SELL' : '— NTRL'}
+                   </span>
+                 </span>
+               </div>
+             )}
            </>
          ) : (
            <div style={{ gridColumn: '1 / -1', fontSize: 10, color: '#64748b', textAlign: 'center' }}>Pro Metrics Loading...</div>
@@ -463,11 +489,13 @@ function OptionsCard({ f, i, tz, onPin }: { f: OptionsRow; i: number; tz: string
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'testing'|'past'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'earnings'|'testing'|'past'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
   const [backtests, setBacktests] = useState<any[]>([]);
   const [pastSignals, setPastSignals] = useState<any[]>([]);
+  const [earningsSignals, setEarningsSignals] = useState<any[]>([]);
+  const [earningsLoading, setEarningsLoading] = useState(true);
   const [runningBacktest, setRunningBacktest] = useState(false);
   const [hasRunBacktest, setHasRunBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
@@ -570,6 +598,17 @@ export default function Dashboard() {
     finally { setPastLoading(false); }
   }, []);
 
+  const fetchEarnings = useCallback(async () => {
+    setEarningsLoading(true);
+    try {
+      const r = await fetch('/api/earnings-scanner');
+      if (!r.ok) return;
+      const d = await r.json();
+      setEarningsSignals(d.signals || []);
+    } catch (e) { console.error('[earnings-scanner]', e); }
+    finally { setEarningsLoading(false); }
+  }, []);
+
   const runHistoricalSimulation = async () => {
     setRunningBacktest(true);
     setHasRunBacktest(false);
@@ -588,7 +627,8 @@ export default function Dashboard() {
   useEffect(() => { 
     fetchBacktests(); 
     fetchPastSignals();
-  }, [fetchBacktests, fetchPastSignals]);
+    fetchEarnings();
+  }, [fetchBacktests, fetchPastSignals, fetchEarnings]);
 
   useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
   // Orevix exclusively targets verified volume breaks, no legacy options tape needed
@@ -686,9 +726,10 @@ export default function Dashboard() {
         background: '#000000', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
       }}>
         {([
-          { id: 'scanner', icon: '📡', label: 'Live Signals',  badge: stats.buys + stats.sells },
-          { id: 'testing', icon: '🧪', label: 'Backtester', badge: 0 },
-          { id: 'past',    icon: '📚', label: 'Past Signals', badge: pastSignals.length },
+          { id: 'scanner',  icon: '📡', label: 'Live Signals',   badge: stats.buys + stats.sells },
+          { id: 'earnings', icon: '📅', label: 'Earnings Edge',  badge: earningsSignals.filter((s: any) => s.verdict !== 'FAIR').length },
+          { id: 'testing',  icon: '🧪', label: 'Backtester',     badge: 0 },
+          { id: 'past',     icon: '📚', label: 'Past Signals',   badge: pastSignals.length },
         ] as { id: typeof tab; icon: string; label: string; badge: number }[]).map(({ id, icon, label, badge }) => {
           const active = tab === id;
           return (
@@ -804,7 +845,107 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* TESTING STRATEGY TAB */}
+          {/* EARNINGS EDGE TAB */}
+          {tab === 'earnings' && (
+            <motion.div key="earnings" style={{ height: '100%', overflowY: 'auto', padding: '24px' }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: '#f0f4ff', letterSpacing: '-0.02em' }}>📅 Earnings Edge Scanner</h2>
+                <p style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>Ranked by IV mispricing strength. Compares market-priced 1σ expected move vs historical actual earnings move.</p>
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                {[
+                  { color: '#f43f5e', bg: 'rgba(244,63,94,0.08)', label: '🩸 IV RICH', desc: 'Options overpriced → Sell premium (Iron Condor / Short Strangle)' },
+                  { color: '#22c55e', bg: 'rgba(34,197,94,0.08)',  label: '📈 IV CHEAP', desc: 'Options underpriced → Buy volatility (Straddle / Strangle)' },
+                  { color: '#94a3b8', bg: 'rgba(255,255,255,0.03)',label: '⚖️ FAIR IV',  desc: 'Options fairly priced → Skip or reduce size' },
+                ].map(leg => (
+                  <div key={leg.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: leg.bg, border: `1px solid ${leg.color}22` }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: leg.color }}>{leg.label}</span>
+                    <span style={{ fontSize: 11, color: '#475569' }}>{leg.desc}</span>
+                  </div>
+                ))}
+              </div>
+
+              {earningsLoading ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} style={{ height: 180, borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                  {earningsSignals.map((s: any, i: number) => {
+                    const isRich  = s.verdict === 'IV_RICH';
+                    const isCheap = s.verdict === 'IV_CHEAP';
+                    const isFair  = s.verdict === 'FAIR';
+                    const accentColor = isRich ? '#f43f5e' : isCheap ? '#22c55e' : '#94a3b8';
+                    const strategyColor = s.strategy === 'IRON_CONDOR' || s.strategy === 'SHORT_STRANGLE' ? '#f43f5e' : s.strategy === 'STRADDLE' || s.strategy === 'STRANGLE' ? '#22c55e' : '#94a3b8';
+                    return (
+                      <motion.div key={s.id} whileHover={{ y: -2 }}
+                        style={{
+                          background: isRich  ? 'linear-gradient(160deg, rgba(244,63,94,0.06) 0%, rgba(5,5,15,0.96) 70%)'
+                                     : isCheap ? 'linear-gradient(160deg, rgba(34,197,94,0.06) 0%, rgba(5,5,15,0.96) 70%)'
+                                     : 'rgba(5,5,15,0.96)',
+                          border: `1px solid ${accentColor}33`,
+                          borderTop: `2px solid ${accentColor}`,
+                          borderRadius: 16, padding: 20, position: 'relative', overflow: 'hidden',
+                          boxShadow: `0 8px 32px -12px ${accentColor}18`,
+                        }}
+                      >
+                        {/* Glow */}
+                        <div style={{ position: 'absolute', top: -40, right: -40, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${accentColor}10, transparent 70%)`, pointerEvents: 'none' }} />
+
+                        {/* Rank badge */}
+                        <div style={{ position: 'absolute', top: 12, right: 12, fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.05)', color: '#475569' }}>#{i + 1}</div>
+
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
+                          <div>
+                            <div style={{ fontSize: 26, fontWeight: 900, color: '#f0f4ff', letterSpacing: '-0.02em', lineHeight: 1 }}>{s.ticker}</div>
+                            <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{s.earningsSeason} · ~{s.dteApprox}DTE</div>
+                          </div>
+                          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}33` }}>
+                              {isRich ? '🩸 IV RICH' : isCheap ? '📈 IV CHEAP' : '⚖️ FAIR IV'}
+                            </div>
+                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>CONF: <span style={{ color: '#94a3b8', fontWeight: 700 }}>{s.confidence}%</span></div>
+                          </div>
+                        </div>
+
+                        {/* Move comparison */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: 9, color: '#4e5d73', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Expected Move</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: accentColor }}>±{s.expectedMovePct.toFixed(1)}%</div>
+                            <div style={{ fontSize: 9, color: '#475569' }}>priced by options</div>
+                          </div>
+                          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ fontSize: 9, color: '#4e5d73', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Historical Move</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#f0f4ff' }}>±{s.historicalAvgMovePct.toFixed(1)}%</div>
+                            <div style={{ fontSize: 9, color: '#475569' }}>8-quarter avg actual</div>
+                          </div>
+                        </div>
+
+                        {/* Strategy */}
+                        {!isFair && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: `${strategyColor}08`, border: `1px solid ${strategyColor}22` }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: strategyColor }}>⚙️ {s.strategy.replace(/_/g, ' ')}</span>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>
+                              IV {isRich ? 'overpriced' : 'underpriced'} by <span style={{ color: accentColor, fontWeight: 700 }}>{Math.abs(s.ivRichness).toFixed(0)}%</span>
+                            </span>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* BACKTESTER TAB */}
           {tab === 'testing' && (
             <motion.div key="testing" style={{ height: '100%', overflowY: 'auto', padding: '20px 24px' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>

@@ -57,6 +57,18 @@ export async function GET() {
           );
         }
 
+        const voi = oi > 0 ? vol / oi : 0;
+        const isOTM = details.contract_type === 'call' ? details.strike_price > spotPrice : details.strike_price < spotPrice;
+        // Multi-leg context: classify institutional intent
+        // DIRECTIONAL SWEEP: high vol/OI ratio + OTM = real directional bet
+        // LIKELY HEDGE: low vol/OI + near ATM = delta hedge against underlying position
+        // COVERED WRITE: put + high OI relative to vol = yield enhancement
+        // UNKNOWN: insufficient data
+        const multiLegTag: string =
+          voi > 1.5 && isOTM ? 'DIRECTIONAL SWEEP' :
+          voi < 0.25 && Math.abs(details.strike_price - spotPrice) / spotPrice < 0.03 ? 'LIKELY HEDGE' :
+          details.contract_type === 'put' && voi < 0.4 && oi > 5000 ? 'COVERED WRITE' : 'UNKNOWN';
+
         tape.push({
           id:             `${sym}-${details.ticker}-${Date.now()}`,
           ticker:         sym,
@@ -66,15 +78,16 @@ export async function GET() {
           expiry:         details.expiration_date,
           volume:         vol,
           openInterest:   oi,
-          volumeOIRatio:  oi > 0 ? parseFloat((vol / oi).toFixed(2)) : 0,
+          volumeOIRatio:  parseFloat(voi.toFixed(2)),
           isUnusual:      uoa.isUnusual,
-          isOTM:          details.contract_type === 'call' ? details.strike_price > spotPrice : details.strike_price < spotPrice,
+          isOTM,
           impliedVol:     implied_volatility,
           delta:          computedGreeks?.delta ?? 0,
           gamma:          computedGreeks?.gamma ?? 0,
           spot:           spotPrice,
           premium:        day.close ?? 0,
           timestamp:      Date.now(),
+          multiLegTag,
         });
       }
     }
@@ -111,6 +124,12 @@ export async function GET() {
           const greeks = calculateBSMGreeks(spot, strike, 7 / 365, 0.05, iv, type);
           const isUnusual = vol / oi > 0.5;
 
+          const genVOI = vol / oi;
+          const isOTM = type === 'call' ? strike > spot : strike < spot;
+          const multiLegTag: string =
+            genVOI > 1.5 && isOTM ? 'DIRECTIONAL SWEEP' :
+            genVOI < 0.25 ? 'LIKELY HEDGE' : 'UNKNOWN';
+
           tape.push({
             id:             `${ticker}-${type}-${strike}-gen`,
             ticker,
@@ -120,9 +139,9 @@ export async function GET() {
             expiry:         expDate,
             volume:         vol,
             openInterest:   oi,
-            volumeOIRatio:  parseFloat((vol / oi).toFixed(2)),
+            volumeOIRatio:  parseFloat(genVOI.toFixed(2)),
             isUnusual,
-            isOTM:          type === 'call' ? strike > spot : strike < spot,
+            isOTM,
             impliedVol:     iv,
             delta:          greeks?.delta ?? 0,
             gamma:          greeks?.gamma ?? 0,
@@ -130,6 +149,7 @@ export async function GET() {
             premium:        parseFloat((Math.abs(spot - strike) * 0.15 + iv * spot * 0.05).toFixed(2)),
             timestamp:      Date.now(),
             isGenerated:    true,
+            multiLegTag,
           });
         }
       }
@@ -179,4 +199,5 @@ export interface OptionsTapeRow {
   premium:        number;
   timestamp:      number;
   isGenerated?:   boolean;
+  multiLegTag?:   string; // DIRECTIONAL SWEEP | LIKELY HEDGE | COVERED WRITE | UNKNOWN
 }
