@@ -140,7 +140,12 @@ function getLastNTradingDays(n: number): string[] {
   const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const days: string[] = [];
   let offset = 1;
-  while (days.length < n && offset <= 30) {
+  const holidays = new Set([
+    '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', // 2026-04-03 is Good Friday
+    '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25'
+  ]);
+
+  while (days.length < n && offset <= 45) {
     const cursor = new Date(etNow);
     cursor.setDate(etNow.getDate() - offset++);
     const dow = cursor.getDay();
@@ -148,7 +153,9 @@ function getLastNTradingDays(n: number): string[] {
     const y  = cursor.getFullYear();
     const mo = String(cursor.getMonth() + 1).padStart(2, '0');
     const d  = String(cursor.getDate()).padStart(2, '0');
-    days.push(`${y}-${mo}-${d}`);
+    const isoDate = `${y}-${mo}-${d}`;
+    if (holidays.has(isoDate)) continue;
+    days.push(isoDate);
   }
   return days;
 }
@@ -254,7 +261,8 @@ export async function GET() {
     const HH1 = String(winnerEntryHr).padStart(2, '0');
     const MM1 = String(winnerEntryMin % 60).padStart(2, '0');
     const winnerEntryMs = new Date(`${isoDate}T${HH1}:${MM1}:00${etOffset}`).getTime();
-    const winnerExitMs  = winnerEntryMs + winnerOutcome.exitMinutesAfterEntry * 60_000;
+    const maxExitMs = new Date(`${isoDate}T16:00:00${etOffset}`).getTime(); // Strictly close by 4:00 PM EST
+    const winnerExitMs  = Math.min(winnerEntryMs + winnerOutcome.exitMinutesAfterEntry * 60_000, maxExitMs);
 
     const key1 = `${winnerTicker}-${isoDate}-primary`;
     if (!usedKeys.has(key1)) {
@@ -322,7 +330,8 @@ export async function GET() {
       const HH2 = String(secEntryHr).padStart(2, '0');
       const MM2 = String(secEntryMin % 60).padStart(2, '0');
       const secEntryMs = new Date(`${isoDate}T${HH2}:${MM2}:00${etOffset}`).getTime();
-      const secExitMs  = secEntryMs + secOutcome.exitMinutesAfterEntry * 60_000;
+      const maxExitMs2 = new Date(`${isoDate}T16:00:00${etOffset}`).getTime(); // Strictly close by 4:00 PM EST
+      const secExitMs  = Math.min(secEntryMs + secOutcome.exitMinutesAfterEntry * 60_000, maxExitMs2);
 
       const key2 = `${secTicker}-${isoDate}-secondary`;
       if (!usedKeys.has(key2)) {

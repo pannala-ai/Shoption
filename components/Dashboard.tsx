@@ -82,16 +82,13 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────
 export default function Dashboard() {
-  const [tab,       setTab]       = useState<'scanner'|'earnings'|'testing'|'past'>('scanner');
+  const [tab,       setTab]       = useState<'scanner'|'earnings'|'past'>('scanner');
   const [filter,    setFilter]    = useState<'all'|'buy'|'sell'|'watch'>('all');
   const [results,   setResults]   = useState<ScanResult[]>([]);
-  const [backtests, setBacktests] = useState<any[]>([]);
   const [pastSignals, setPastSignals] = useState<any[]>([]);
   const [pinnedTrades, setPinnedTrades] = useState<PinnedTrade[]>([]);
   const [earningsSignals, setEarningsSignals] = useState<any[]>([]);
   const [earningsLoading, setEarningsLoading] = useState(true);
-  const [runningBacktest, setRunningBacktest] = useState(false);
-  const [hasRunBacktest, setHasRunBacktest] = useState(false);
   const [loading,   setLoading]   = useState(true);
   const [pastLoading, setPastLoading] = useState(true);
   const [scanning,  setScanning]  = useState(false);
@@ -155,14 +152,7 @@ export default function Dashboard() {
     finally { setScanning(false); setLoading(false); }
   }, [tz, mkt.label]);
 
-  const fetchBacktests = useCallback(async () => {
-    try {
-      const r = await fetch('/api/backtests');
-      if (!r.ok) return;
-      const d = await r.json();
-      setBacktests(d.backtests || []);
-    } catch (e) { console.error('[backtests]', e); }
-  }, []);
+
 
   const fetchPastSignals = useCallback(async () => {
     setPastLoading(true);
@@ -186,26 +176,12 @@ export default function Dashboard() {
     finally { setEarningsLoading(false); }
   }, []);
 
-  const runHistoricalSimulation = async () => {
-    setRunningBacktest(true);
-    setHasRunBacktest(false);
-    try {
-      const r = await fetch('/api/run-backtest', { method: 'POST' });
-      await r.json();
-      await fetchBacktests();
-    } catch (e) { 
-      console.error(e); 
-    } finally { 
-      setRunningBacktest(false); 
-      setHasRunBacktest(true);
-    }
-  };
+
 
   useEffect(() => { 
-    fetchBacktests(); 
     fetchPastSignals();
     fetchEarnings();
-  }, [fetchBacktests, fetchPastSignals, fetchEarnings]);
+  }, [fetchPastSignals, fetchEarnings]);
 
   useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
 
@@ -290,7 +266,6 @@ export default function Dashboard() {
         {([
           { id: 'scanner',  label: 'Executable Signals',   badge: stats.buys + stats.sells },
           { id: 'earnings', label: 'Volatility Edge',  badge: earningsSignals.filter((s: any) => s.verdict !== 'FAIR').length },
-          { id: 'testing',  label: 'Backtester',     badge: 0 },
           { id: 'past',     label: 'Past Signals',   badge: pastSignals.length },
         ] as { id: typeof tab; label: string; badge: number }[]).map(({ id, label, badge }) => {
           const active = tab === id;
@@ -383,68 +358,6 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {/* BACKTESTER TAB */}
-          {tab === 'testing' && (
-            <motion.div key="testing" style={{ height: '100%', overflowY: 'auto', padding: '0 24px 24px' }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              <div className="glass" style={{
-                padding: '24px', borderRadius: 12, marginBottom: 24,
-                display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between'
-              }}>
-                <div>
-                  <p style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6, fontSize: 18 }}>Quantitative Historical Engine</p>
-                  <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    Backtest the current Orevix algorithmic parameters against trailing aggregate flow data.
-                  </p>
-                </div>
-                <button
-                  onClick={runHistoricalSimulation}
-                  disabled={runningBacktest}
-                  style={{
-                    padding: '14px 28px', borderRadius: 8, 
-                    background: 'var(--accent)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.04em', cursor: runningBacktest ? 'not-allowed' : 'pointer',
-                    fontFamily: 'inherit', transition: 'all 0.3s ease', opacity: runningBacktest ? 0.6 : 1,
-                    boxShadow: '0 8px 24px rgba(0, 122, 255, 0.4)',
-                  }}
-                  onMouseOver={e => { if (!runningBacktest) { e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-                  onMouseOut={e => { if (!runningBacktest) { e.currentTarget.style.transform = 'translateY(0)'; } }}
-                >
-                  {runningBacktest ? 'RUNNING...' : 'EXECUTE SIMULATION'}
-                </button>
-              </div>
-
-               <div className="glass" style={{
-                  borderRadius: 12, overflow: 'hidden'
-                }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: 11 }}>
-                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Date</th>
-                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Setup</th>
-                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Entry Time</th>
-                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Entry</th>
-                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', textAlign: 'right' }}>Simulated PNL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {backtests.map((b) => (
-                        <tr key={b.id} style={{ borderTop: '1px solid var(--border-soft)', color: 'var(--text-primary)' }}>
-                          <td style={{ padding: '14px 20px', fontWeight: 600 }}>{b.entryDate}</td>
-                          <td style={{ padding: '14px 20px', fontWeight: 800 }}>{b.ticker} {b.signal === 'BUY' ? '↑' : '↓'}</td>
-                          <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{new Date(b.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</td>
-                          <td style={{ padding: '14px 20px' }}>${b.entryPremium.toFixed(2)}</td>
-                          <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 800, color: b.maxGainPct > 0 ? 'var(--buy)' : 'var(--text-primary)' }}>
-                            {b.maxGainPct.toFixed(1)}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-            </motion.div>
-          )}
 
           {/* PAST SIGNALS TAB */}
           {tab === 'past' && (
