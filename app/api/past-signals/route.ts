@@ -215,7 +215,9 @@ export async function GET() {
     const winnerSignal: 'BUY' | 'SELL' = (daySeedBase % 3 === 0) ? 'SELL' : 'BUY';
     const winnerWindow   = ENTRY_WINDOWS[Math.floor(winnerRng() * ENTRY_WINDOWS.length)];
     const winnerEntryHr  = winnerWindow.minHour + Math.floor(winnerRng() * Math.max(1, winnerWindow.maxHour - winnerWindow.minHour + 1));
-    const winnerEntryMin = Math.floor(winnerRng() * 60);
+    let winnerEntryMin = Math.floor(winnerRng() * 60);
+    // Ensure market is open (9:30 AM EST)
+    if (winnerEntryHr === 9 && winnerEntryMin < 30) winnerEntryMin = 30 + Math.floor(winnerRng() * 30);
 
     const winnerSpot     = parseFloat((winnerMeta.baseSpot * (0.97 + winnerRng() * 0.06)).toFixed(2));
     const winnerDTE      = 1 / 365 + winnerRng() * (2 / 365); // 1-3 DTE
@@ -285,7 +287,9 @@ export async function GET() {
       const secSignal: 'BUY' | 'SELL' = ((daySeedBase + secIdx) % 2 === 0) ? 'BUY' : 'SELL';
       const secWindow   = ENTRY_WINDOWS[Math.floor(secRng() * ENTRY_WINDOWS.length)];
       const secEntryHr  = secWindow.minHour + Math.floor(secRng() * Math.max(1, secWindow.maxHour - secWindow.minHour + 1));
-      const secEntryMin = Math.floor(secRng() * 60);
+      let secEntryMin = Math.floor(secRng() * 60);
+      // Ensure market is open (9:30 AM EST)
+      if (secEntryHr === 9 && secEntryMin < 30) secEntryMin = 30 + Math.floor(secRng() * 30);
 
       const secSpot     = parseFloat((secMeta.baseSpot * (0.97 + secRng() * 0.06)).toFixed(2));
       const secDTE      = 1 / 365 + secRng() * (2 / 365);
