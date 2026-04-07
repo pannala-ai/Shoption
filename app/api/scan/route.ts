@@ -126,32 +126,6 @@ export async function GET() {
     const seen = new Set<string>();
     allSnaps = allSnaps.filter(t => t?.ticker && !seen.has(t.ticker) && seen.add(t.ticker));
 
-    // Fallback: deterministic synthetic data when API is rate-limited
-    if (allSnaps.length === 0) {
-      const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-      const dateString = et.toDateString() + et.getHours() + et.getMinutes();
-      let seed = 0;
-      for (let i = 0; i < dateString.length; i++) seed += dateString.charCodeAt(i);
-      seed = seed * 1.5;
-
-      allSnaps = WATCHLIST.map((ticker, index) => {
-        let hash = 0;
-        for (let i = 0; i < ticker.length; i++) hash = ((hash << 5) - hash) + ticker.charCodeAt(i);
-        const rand = Math.abs(hash * seed) % 1;
-        const basePrice = 50 + (hash % 200);
-        const price = basePrice + rand * 40;
-        const sign = index % 2 === 0 ? 1 : -1;
-        const change = sign * (rand * 6);
-        const lastClose = price / (1 + change / 100);
-        return {
-          ticker,
-          todaysChangePerc: change,
-          todaysChange: price - lastClose,
-          day: { c: price, o: lastClose, h: price * 1.01, l: lastClose * 0.99, v: 1000000 + rand * 5000000, vw: price * 0.995 },
-          prevDay: { v: 1000000 + rand * 4000000 },
-        };
-      });
-    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let results: any[] = [];
@@ -207,52 +181,21 @@ export async function GET() {
       }).filter(r => r.price > 0);
     }
 
-    const score = (r: {signal: string; signalStrength: number; squeezeProbability?: number}) =>
-      ((r.signal === 'BUY' || r.signal === 'SELL') ? 1000 : 0) + r.signalStrength + (r.squeezeProbability ?? 0) * 0.1;
+    const score = (r: {signal: string; signalStrength: number; squeezeProbability?: number; assetType: string}) =>
+      ((r.signal === 'BUY' || r.signal === 'SELL') && r.assetType === 'OPTION' ? 1000 : 0) + r.signalStrength + (r.squeezeProbability ?? 0) * 0.1;
     results.sort((a, b) => score(b) - score(a));
 
-    // Guaranteed signal floor — dynamic threshold fallback.
-    // If no tickers cleared the strict sweep filter, lower thresholds and re-evaluate
-    // the best available setup. At least one signal fires per session.
-    let currentActive = results.filter(r => r.signal === 'BUY' || r.signal === 'SELL').length;
-    if (currentActive === 0 && results.length > 0) {
-      // Sort by absolute change to find most actionable ticker
-      const candidates = [...results].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-      for (let i = 0; i < Math.min(8, candidates.length); i++) {
-        const r = candidates[i];
-        // Only skip tickers with truly flat/zero price
-        if (r.price <= 0) continue;
-        const ctx = computeContext(r.ticker, r.rvol, r.change, r.price);
-        const fallbackSetup = evaluateQuantitativeSetup(
-          r.ticker, r.price, r.change !== 0 ? r.change : 0.5, r.rvol, r.vwap, r.high, r.low,
-          2.0, // Force sweep confirmation threshold pass with optionsVolOIRatio=2.0
-          ctx,
-          true // _dynamicFallback: relaxes thresholds, adds disclosure tag to reason
-        );
-        if (fallbackSetup.signal === 'NONE') continue;
-        // Find this ticker in results by ticker name
-        const resultIdx = results.findIndex(res => res.ticker === r.ticker);
-        if (resultIdx === -1) continue;
-        results[resultIdx].signal         = fallbackSetup.signal;
-        results[resultIdx].signalStrength = fallbackSetup.strength;
-        results[resultIdx].reason         = fallbackSetup.reason;
-        results[resultIdx].proMetrics     = fallbackSetup.proMetrics;
-        results[resultIdx].strategyName   = fallbackSetup.strategyName;
-        results[resultIdx].strikeLabel    = fallbackSetup.strikeLabel;
-        results[resultIdx].gexRegime      = fallbackSetup.gexRegime;
-        results[resultIdx].ivRegime       = fallbackSetup.ivRegime;
-        results[resultIdx].dealerBias     = fallbackSetup.dealerBias;
-        currentActive++;
-        if (currentActive >= 2) break; // Always surface at least 2 signals via fallback
-      }
-    }
+    // Fallback completely removed. Only genuine signals matching criteria will be surfaced.
 
     // Cap at 3 active signals per cycle
     let activeSignals = 0;
     results = results.map(r => {
-      if (r.signal === 'BUY' || r.signal === 'SELL') {
+      // Must be an OPTION to proceed
+      if ((r.signal === 'BUY' || r.signal === 'SELL') && r.assetType === 'OPTION') {
         if (activeSignals >= 3) return { ...r, signal: 'NONE', reason: '' };
         activeSignals++;
+      } else {
+        r.signal = 'NONE'; // Suppress non-actionable or non-option setups
       }
       return r;
     });

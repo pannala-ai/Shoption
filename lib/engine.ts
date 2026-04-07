@@ -326,14 +326,11 @@ const STRATEGIES = [
  * Filter 3 — Expected Move: Strike selection enforces 1-sigma boundary.
  *   Target strike = spot * IV * sqrt(DTE/365). OTM targets beyond this boundary are rejected.
  *
- * Filter 4 — Sweep Confirmation: Requires options flow ratio > 1.6 AND a directional sweep
- *   pattern (high RVOL + directional move together). Single-leg blocks are filtered out.
+ * Filter 4 — Sweep Confirmation: Requires flow ratio > 1.6 AND a directional sweep
+ *   pattern (high RVOL + directional move together).
  *
- * Filter 5 — 0DTE Charm: Within the last 90 minutes of the session, long directional buys
- *   are blocked unless the GEX regime is SQUEEZE (dealer forced covering supports late move).
- *
- * Filter 6 — Dynamic Threshold: If the strict requirements aren's met, thresholds step down
- *   dynamically to guarantee at least one actionable signal per session.
+ * Filter 5 — 0DTE Charm: Within the last 90 minutes of the session, long buys
+ *   are blocked unless GEX regime is SQUEEZE.
  */
 export function evaluateQuantitativeSetup(
   ticker: string,
@@ -350,9 +347,7 @@ export function evaluateQuantitativeSetup(
     dealerBias?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     ivZScore?: number;
     squeezeProbability?: number;
-  },
-  // Internal flag used by the dynamic threshold fallback (pass true on retry)
-  _dynamicFallback: boolean = false,
+  }
 ): QuantSetup {
   const assetType: AssetType = 'OPTION';
 
@@ -364,21 +359,16 @@ export function evaluateQuantitativeSetup(
 
   // ── Market structure helpers ──────────────────────────────────────────────
   const absChange   = Math.abs(change);
-  const isBullish   = change >= 0; // treat flat as bullish for fallback stability
-  // Primary VWAP alignment: price side matches direction
   const isBullVwap  = price >= vwap && change >= 0;
   const isBearVwap  = price <  vwap && change <  0;
-  // Relaxed VWAP: in fallback mode, use whichever side of VWAP price is on
-  const isValidVwap = _dynamicFallback
-    ? (price !== vwap) // any deviation is valid in fallback
-    : (isBullVwap || isBearVwap);
+  const isValidVwap = isBullVwap || isBearVwap;
   const priceRange  = high > low ? (high - low) / low : 0.02;
   const atr         = Number((price * priceRange).toFixed(2));
 
-  // Dynamic threshold tier — step down if fallback pass
-  const rvolThreshold  = _dynamicFallback ? 1.2 : 1.8;
-  const flowThreshold  = _dynamicFallback ? 1.2 : 1.6;
-  const changeThreshold = _dynamicFallback ? 0.8 : (atr / price) * 0.3 * 100;
+  // Strict thresholds
+  const rvolThreshold  = 1.8;
+  const flowThreshold  = 1.6;
+  const changeThreshold = (atr / price) * 0.3 * 100;
 
   // ── Filter 4: Sweep confirmation ──────────────────────────────────────────
   // Institutional sweeps show both high RVOL and directional move together.
@@ -417,8 +407,7 @@ export function evaluateQuantitativeSetup(
     return { strategyName: 'Scanning', signal: 'NONE', strength: 0, reason: '', assetType };
   }
 
-  // In fallback mode use price vs VWAP for direction, not strict isBullVwap
-  const signal: SignalType = (isBullVwap || (_dynamicFallback && price >= vwap)) ? 'BUY' : 'SELL';
+  const signal: SignalType = isBullVwap ? 'BUY' : 'SELL';
 
   // ── Filter 3: Expected Move — 1-sigma strike selection ───────────────────
   // Expected move = spot * IV_annualized * sqrt(DTE/365)
@@ -473,7 +462,6 @@ export function evaluateQuantitativeSetup(
   if (ivR === 'IV_CHEAP' && signal === 'BUY')      strength = Math.min(99, strength + 2);
   if (db === 'BULLISH'   && signal === 'BUY')      strength = Math.min(99, strength + 1);
   if (db === 'BEARISH'   && signal === 'SELL')     strength = Math.min(99, strength + 1);
-  if (_dynamicFallback)                            strength = Math.max(90, strength - 2); // slight discount
 
   // ── Reason text — professional, no emojis ────────────────────────────────
   const gexTag = gexR === 'SQUEEZE'
@@ -488,9 +476,6 @@ export function evaluateQuantitativeSetup(
     : '';
   const charmTag = isLateSession && gexR === 'SQUEEZE'
     ? ' [Late session — squeeze override active, charm risk accepted]'
-    : '';
-  const fallbackTag = _dynamicFallback
-    ? ' [Dynamic threshold — best available setup given current market conditions]'
     : '';
 
   let baseReason = '';
@@ -509,7 +494,7 @@ export function evaluateQuantitativeSetup(
     case 11: baseReason = `IV cheap relative to realized vol — skew-adjusted strangle positioned inside 1-sigma expected move`; break;
     default: baseReason = isBullVwap ? 'Bullish continuation setup' : 'Bearish breakdown setup';
   }
-  const reason = baseReason + gexTag + ivTag + charmTag + fallbackTag;
+  const reason = baseReason + gexTag + ivTag + charmTag;
 
   // ── Pro Metrics ───────────────────────────────────────────────────────────
   const priceVsVwap = vwap > 0 ? (price - vwap) / vwap : 0;

@@ -34,10 +34,9 @@ export default function AssistantInput() {
               <button
                 key={s}
                 onClick={() => setQuery(s)}
+                className="glass"
                 style={{
-                  background: '#09264A',
-                  border: '1px solid #142E4A',
-                  color: '#94A3B8',
+                  color: 'var(--text-secondary)',
                   padding: '6px 12px',
                   borderRadius: 100,
                   fontSize: 12,
@@ -47,13 +46,13 @@ export default function AssistantInput() {
                   flexShrink: 0
                 }}
                 onMouseOver={e => {
-                  e.currentTarget.style.color = '#fff';
-                  e.currentTarget.style.borderColor = '#604CC3';
-                  e.currentTarget.style.boxShadow = '0 0 10px rgba(96, 76, 195, 0.2)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 122, 255, 0.1)';
                 }}
                 onMouseOut={e => {
-                  e.currentTarget.style.color = '#94A3B8';
-                  e.currentTarget.style.borderColor = '#142E4A';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                  e.currentTarget.style.borderColor = 'var(--border)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
@@ -66,7 +65,6 @@ export default function AssistantInput() {
 
       <div style={{
         position: 'relative',
-        background: '#0B192C',
         borderRadius: 16,
         padding: '2px',
         backgroundClip: 'padding-box',
@@ -75,7 +73,7 @@ export default function AssistantInput() {
         <div style={{
           position: 'absolute',
           top: 0, left: 0, right: 0, bottom: 0,
-          background: focused ? 'linear-gradient(90deg, #2081F9, #604CC3)' : '#142E4A',
+          background: focused ? 'var(--accent-grad)' : 'var(--border)',
           zIndex: 0,
           opacity: focused ? 1 : 0.5,
           transition: 'opacity 0.3s'
@@ -84,14 +82,14 @@ export default function AssistantInput() {
         <div style={{
           position: 'relative',
           zIndex: 1,
-          background: '#0B192C',
+          background: 'var(--bg-surface)',
           borderRadius: 14,
           display: 'flex',
           alignItems: 'center',
           padding: '8px 16px',
           gap: 12
         }}>
-          <Sparkles color="#604CC3" size={20} />
+          <Sparkles color="var(--accent)" size={20} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -103,18 +101,18 @@ export default function AssistantInput() {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontSize: 15,
               padding: '8px 0'
             }}
           />
           
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <button style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer' }}><ImageIcon size={18} /></button>
-            <button style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer' }}><Mic size={18} /></button>
+            <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><ImageIcon size={18} /></button>
+            <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><Mic size={18} /></button>
             <button style={{
-              background: query ? '#604CC3' : '#142E4A',
-              border: 'none',
+              background: query ? 'var(--accent)' : 'var(--bg-card2)',
+              border: query ? 'none' : '1px solid var(--border)',
               borderRadius: '50%',
               width: 32,
               height: 32,
@@ -122,8 +120,8 @@ export default function AssistantInput() {
               alignItems: 'center',
               justifyContent: 'center',
               cursor: query ? 'pointer' : 'not-allowed',
-              transition: 'background 0.2s',
-              color: '#fff'
+              transition: 'all 0.2s',
+              color: query ? '#fff' : 'var(--text-muted)'
             }}>
               <Send size={14} style={{ marginLeft: 2 }} />
             </button>

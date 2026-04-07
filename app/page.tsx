@@ -4,23 +4,23 @@ import Link from 'next/link';
 
 export default function LandingPage() {
   return (
-    <div style={{ backgroundColor: '#000', minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', color: '#f1f5f9', fontFamily: '"Inter", sans-serif' }}>
+    <div style={{ backgroundColor: 'var(--bg-base)', minHeight: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', color: 'var(--text-primary)', fontFamily: '"Inter", sans-serif' }}>
       
-      {/* Decorative Glows */}
-      <div style={{ position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)', width: 800, height: 600, borderRadius: '50%', background: 'rgba(16,185,129,0.06)', filter: 'blur(120px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 600, height: 600, borderRadius: '50%', background: 'rgba(99,102,241,0.06)', filter: 'blur(120px)', pointerEvents: 'none' }} />
+      {/* Decorative Glows (Brighter and Softer for Light Mode) */}
+      <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: 800, height: 600, borderRadius: '50%', background: 'rgba(52, 199, 89, 0.1)', filter: 'blur(120px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 600, height: 600, borderRadius: '50%', background: 'rgba(0, 122, 255, 0.08)', filter: 'blur(120px)', pointerEvents: 'none' }} />
 
       <main style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '0 24px', maxWidth: 900 }}>
         
-        <div style={{ marginBottom: 24, display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 13, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981', flexShrink: 0, animation: 'pulse-dot 2s ease-in-out infinite' }} />
+        <div className="glass" style={{ marginBottom: 24, display: 'inline-flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderRadius: 100, fontSize: 13, fontWeight: 700, color: 'var(--buy)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--buy)', boxShadow: '0 0 10px var(--buy)', flexShrink: 0, animation: 'pulse-dot 2s ease-in-out infinite' }} />
           Live execution engines online
         </div>
 
-        <h1 style={{ fontSize: 'clamp(40px, 6vw, 84px)', fontWeight: 900, letterSpacing: '-0.02em', color: '#ffffff', marginBottom: 24, lineHeight: 1.1 }}>
+        <h1 style={{ fontSize: 'clamp(40px, 6vw, 84px)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--text-primary)', marginBottom: 24, lineHeight: 1.1 }}>
           Institutional Options Flow.<br />
           <span style={{ 
-            background: 'linear-gradient(135deg, #34d399, #6366f1)',
+            background: 'var(--accent-grad)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -30,7 +30,7 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#94a3b8', marginBottom: 44, maxWidth: 680, lineHeight: 1.6, fontWeight: 500 }}>
+        <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: 'var(--text-secondary)', marginBottom: 44, maxWidth: 680, lineHeight: 1.6, fontWeight: 500 }}>
           A zero-noise quantitative scanner tracking Anomalous Premium Breakouts in real-time. Uncover structural market advantages before the institutional sweep settles.
         </p>
 
@@ -38,12 +38,12 @@ export default function LandingPage() {
           <Link href="/terminal" style={{ textDecoration: 'none' }}>
             <div style={{ 
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              padding: '16px 36px', background: 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#000', fontSize: 18, fontWeight: 800, borderRadius: 14,
-              boxShadow: '0 12px 30px -10px rgba(16,185,129,0.5)', cursor: 'pointer', transition: 'all 0.2s ease'
+              padding: '16px 36px', background: 'var(--accent-grad)',
+              color: '#ffffff', fontSize: 18, fontWeight: 800, borderRadius: 100,
+              boxShadow: '0 8px 24px -8px rgba(0, 122, 255, 0.4)', cursor: 'pointer', transition: 'all 0.2s ease'
              }} 
-             onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 15px 40px -10px rgba(16,185,129,0.7)'; }}
-             onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 12px 30px -10px rgba(16,185,129,0.5)'; }}
+             onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 12px 32px -8px rgba(0, 122, 255, 0.6)'; }}
+             onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 24px -8px rgba(0, 122, 255, 0.4)'; }}
              >
               Launch Terminal
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -52,13 +52,12 @@ export default function LandingPage() {
             </div>
           </Link>
 
-          <button style={{ 
+          <button className="glass" style={{ 
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px 36px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            color: '#e2e8f0', fontSize: 16, fontWeight: 700, borderRadius: 14, cursor: 'pointer', transition: 'all 0.2s ease'
+            padding: '16px 36px', color: 'var(--text-primary)', fontSize: 16, fontWeight: 700, borderRadius: 100, cursor: 'pointer', transition: 'all 0.2s ease'
            }}
-           onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.02)'; }}
-           onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#e2e8f0'; e.currentTarget.style.transform = 'scale(1)'; }}
+           onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg-card2)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+           onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.transform = 'scale(1)'; }}
            onClick={() => alert("Methodology: Anomalous option block detection via instantaneous RVOL aggregates")}
            >
             Explore Methodology
@@ -66,7 +65,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <div style={{ position: 'absolute', bottom: 40, left: 0, width: '100%', display: 'flex', justifyContent: 'center', fontSize: 12, color: '#475569', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+      <div style={{ position: 'absolute', bottom: 40, left: 0, width: '100%', display: 'flex', justifyContent: 'center', fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
         Orevix Quantitative Systems © {new Date().getFullYear()}
       </div>
     </div>

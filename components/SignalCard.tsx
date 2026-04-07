@@ -20,8 +20,7 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
 
   const pm = r.proMetrics;
   
-  // XAI Architecture - The "Black Box" is unacceptable
-  // Parse the reason string into feature importance
+  // XAI Architecture
   const rawFeatures = r.reason.split(' — ');
   const mainStrategy = rawFeatures[0] || r.strategyName || 'Algorithmic Anomaly';
   const naturalLanguageSummary = rawFeatures[1] || 'Quantitative model detected significant structural edge triggering this alert.';
@@ -33,34 +32,32 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.22 }}
+      className="glass"
       style={{
-        background: 'rgba(255, 255, 255, 0.04)',
-        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-        border: `1px solid ${isNew ? '#604CC3' : 'rgba(255, 255, 255, 0.1)'}`,
-        borderRadius: 24, 
+        borderRadius: 12, 
         padding: 24,
-        color: '#E2E8F0',
+        color: 'var(--text-primary)',
         display: 'flex',
         flexDirection: 'column',
         gap: 16,
-        boxShadow: isNew ? '0 0 20px rgba(96, 76, 195, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.3)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        border: `1px solid ${isNew ? 'var(--accent)' : 'var(--border)'}`
       }}
     >
       {/* Action Indicator */}
-      <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: '#F99820' }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: r.signal === 'BUY' ? 'var(--buy)' : 'var(--sell)' }} />
 
       {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <h3 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: '#fff' }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
               {r.ticker}
             </h3>
             <span style={{ 
-              background: 'rgba(32, 129, 249, 0.1)', // Trust Blue bg
-              color: '#2081F9', 
+              background: 'var(--accent-soft)', 
+              color: 'var(--accent)', 
               padding: '2px 8px', 
               borderRadius: 4, 
               fontSize: 10, 
@@ -71,15 +68,15 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 18, fontWeight: 600 }}>{fmt.usd(r.price)}</span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8' }}>{fmt.pct(r.change)}</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>{fmt.pct(r.change)}</span>
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
           <div style={{ 
             display: 'flex', alignItems: 'center', gap: 6, 
-            background: 'rgba(249, 152, 32, 0.15)', // Action Orange
-            color: '#F99820', 
+            background: r.signal === 'BUY' ? 'var(--buy-soft)' : 'var(--sell-soft)', 
+            color: r.signal === 'BUY' ? 'var(--buy)' : 'var(--sell)', 
             padding: '4px 12px', 
             borderRadius: 100, 
             fontSize: 12, 
@@ -98,10 +95,9 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
               pinnedAt: Date.now()
             })}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)', 
-              border: '1px solid rgba(255, 255, 255, 0.1)', 
-              color: '#CBD5E1',
-              backdropFilter: 'blur(12px)',
+              background: 'var(--bg-card2)', 
+              border: '1px solid var(--border)', 
+              color: 'var(--text-secondary)',
               padding: '6px 16px', 
               borderRadius: 8, 
               fontSize: 11, 
@@ -110,8 +106,8 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
               cursor: 'pointer', 
               transition: 'all 0.3s ease',
             }}
-            onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-            onMouseOut={e => { e.currentTarget.style.color = '#CBD5E1'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'; }}
+            onMouseOver={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--border-soft)'; }}
+            onMouseOut={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'var(--bg-card2)'; }}
           >
             PIN TRADE
           </button>
@@ -119,27 +115,27 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       </div>
 
       {/* CONFIDENCE SCORE GAUGE */}
-      <div style={{ background: 'rgba(0, 0, 0, 0.2)', borderRadius: 12, padding: 16, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+      <div style={{ background: 'var(--bg-card2)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Cpu size={14} color="#604CC3" />
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Cpu size={14} color="var(--accent)" />
             AI Confidence Score
           </span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{r.signalStrength}% Probability</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{r.signalStrength}% Probability</span>
         </div>
-        <div style={{ width: '100%', height: 6, background: '#142E4A', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ width: '100%', height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
            <motion.div 
              initial={{ width: 0 }}
              animate={{ width: `${r.signalStrength}%` }}
              transition={{ duration: 1, ease: "easeOut" }}
-             style={{ height: '100%', background: 'linear-gradient(90deg, #2081F9 0%, #604CC3 100%)', borderRadius: 3 }}
+             style={{ height: '100%', background: 'var(--accent-grad)', borderRadius: 3 }}
            />
         </div>
       </div>
 
       {r.strikeLabel && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: '#E2E8F0' }}>
-          <Target size={16} color="#F99820" /> Target {r.strikeLabel}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <Target size={16} color="var(--watch)" /> Target {r.strikeLabel}
         </div>
       )}
 
@@ -147,21 +143,21 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {pm && (
           <>
-            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-               <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>RSI Momentum</div>
+            <div style={{ background: 'var(--bg-card2)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>RSI Momentum</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>{pm.rsi} / 100</div>
             </div>
-            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-               <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>GEX Regime</div>
+            <div style={{ background: 'var(--bg-card2)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>GEX Regime</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>{r.gexRegime || 'NORMAL'}</div>
             </div>
-            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-               <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>Stop Loss</div>
+            <div style={{ background: 'var(--bg-card2)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Stop Loss</div>
                <div style={{ fontSize: 13, fontWeight: 600 }}>${pm.stopLoss.toFixed(2)}</div>
             </div>
-             <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-               <div style={{ fontSize: 10, color: '#94A3B8', marginBottom: 2 }}>Take Profit</div>
-               <div style={{ fontSize: 13, fontWeight: 600, color: '#2081F9' }}>${pm.takeProfit.toFixed(2)}</div>
+             <div style={{ background: 'var(--bg-card2)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Take Profit</div>
+               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>${pm.takeProfit.toFixed(2)}</div>
             </div>
           </>
         )}
@@ -169,15 +165,15 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
 
       {/* NATURAL LANGUAGE SETUP SUMMARY */}
       <div style={{ 
-        background: 'rgba(255, 255, 255, 0.05)', 
-        borderLeft: '4px solid #604CC3', 
+        background: 'var(--bg-card2)', 
+        borderLeft: '4px solid var(--accent)', 
         padding: '12px 14px', 
         borderRadius: '0 6px 6px 0',
         fontSize: 13,
         lineHeight: 1.5,
-        color: '#CBD5E1'
+        color: 'var(--text-secondary)'
       }}>
-        <strong style={{ color: '#fff', display: 'block', marginBottom: 4 }}>{mainStrategy}</strong>
+        <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>{mainStrategy}</strong>
         {naturalLanguageSummary}
       </div>
 

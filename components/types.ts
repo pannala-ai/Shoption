@@ -77,11 +77,16 @@ export interface PastTrade {
   ticker: string;
   signal: 'BUY' | 'SELL';
   price: number;
+  entryPrice?: number;
   reason: string;
   strength: number;
   time: string;
   date: string;
   timestamp: number;
+  entryTime?: number;
+  exitTime?: number;
+  entryDate?: string;
+  maxGainPct?: number;
   assetType?: 'STOCK' | 'OPTION';
   strategyName?: string;
   strikeLabel?: string;
@@ -90,5 +95,5 @@ export interface PastTrade {
 export interface PinnedTrade extends PastTrade {
   pinnedAt: number;
   exitDate?: string;
-  exitTime?: string;
+  exitTimeStr?: string;
 }

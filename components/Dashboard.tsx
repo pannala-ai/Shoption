@@ -27,37 +27,53 @@ function marketStatus() {
 // ── Past Trade Card ────────────────────────────────────────────
 function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: PinnedTrade) => void; currentPrice?: number; tz: string }) {
   const isBuy = t.signal === 'BUY';
-  const color = '#2081F9';
+  const color = 'var(--accent)';
   
-  const dynDate = new Date(t.timestamp).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
-  const dynTime = new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+  const entryMs = t.entryTime || t.timestamp;
+  const exitMs = t.exitTime || (t.timestamp + 3600000); // fallback to 1hr later
+
+  const entryDate = new Date(entryMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
+  const entryTimeStr = new Date(entryMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
+  
+  const exitDate = new Date(exitMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
+  const exitTimeStr = new Date(exitMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      className="glass"
       style={{
-        background: 'rgba(255, 255, 255, 0.04)',
-        backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-        border: `1px solid rgba(255, 255, 255, 0.1)`,
-        borderRadius: 24, padding: '24px', position: 'relative', overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        borderRadius: 12, padding: '24px', position: 'relative', overflow: 'hidden',
       }}
     >
-      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+      <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em' }}>{t.ticker}</span>
+            <span style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{t.ticker}</span>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f8fafc', marginTop: 4 }}>
-            Entry: {t.price ? `$${t.price.toFixed(2)}` : 'N/A'}
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4 }}>
+            Entry: {t.entryPrice ? `$${t.entryPrice.toFixed(2)}` : (t.price ? `$${t.price.toFixed(2)}` : 'N/A')}
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 100, background: 'rgba(32, 129, 249, 0.15)', color: '#2081F9' }}>
+          <span style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 100, background: isBuy ? 'var(--buy-soft)' : 'var(--sell-soft)', color: isBuy ? 'var(--buy)' : 'var(--sell)' }}>
             {isBuy ? '↑ LONG' : '↓ SHORT'}
           </span>
-          <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>{dynDate} · {dynTime}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700, marginTop: 4, textAlign: 'right' }}>
+            <div style={{color: 'var(--text-muted)', fontSize: 10}}>BOUGHT</div>
+            {entryDate} {entryTimeStr}
+          </div>
+        </div>
+      </div>
+      
+      <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+           {t.maxGainPct !== undefined && <div style={{ fontSize: 16, fontWeight: 800, color: t.maxGainPct > 0 ? 'var(--buy)' : 'var(--sell)' }}>{t.maxGainPct > 0 ? '+' : ''}{t.maxGainPct}% PNL</div>}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700, textAlign: 'right' }}>
+          <div style={{color: 'var(--text-muted)', fontSize: 10}}>SOLD</div>
+          {exitDate} {exitTimeStr}
         </div>
       </div>
     </motion.div>
@@ -202,21 +218,22 @@ export default function Dashboard() {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#09264A', color: '#E2E8F0', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-base)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
       <AlertToast />
 
       {/* ── HEADER / F-PATTERN SUMMARY ── */}
-      <div style={{
+      <div className="glass" style={{
         display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px',
-        background: '#0B192C', borderBottom: '1px solid #142E4A', flexShrink: 0,
+        borderBottom: '1px solid var(--border)', flexShrink: 0,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.02)', zIndex: 10, position: 'relative'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #2081F9, #604CC3)', color: '#fff', fontWeight: 900, fontSize: 16,
+            width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--text-primary)', color: 'var(--bg-base)', fontWeight: 900, fontSize: 16,
           }}>O</div>
           <div>
-            <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>OREVIX AI</span>
+            <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>OREVIX AI</span>
           </div>
         </div>
 
@@ -234,22 +251,34 @@ export default function Dashboard() {
           ].map(({ label, value }) => (
           <div key={label} style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            background: '#09264A', border: '1px solid #142E4A',
-            borderRadius: 8, padding: '6px 12px',
+            background: 'var(--bg-card2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '6px 12px',
           }}>
-            <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>{label}</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{value}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{value}</span>
           </div>
         ))}
         </div>
 
         <div style={{ flex: 1 }} />
-        {scanning && <span style={{ fontSize: 11, color: '#604CC3', fontWeight: 600 }}>⟳ Parsing Data...</span>}
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#CBD5E1', fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{time} {tz === 'America/New_York' ? 'EST' : ''}</span>
+        {scanning && <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>⟳ Parsing Data...</span>}
+        <select 
+          value={tz} 
+          onChange={(e) => setTz(e.target.value)}
+          style={{ 
+            background: 'var(--bg-card2)', color: 'var(--text-primary)', 
+            border: '1px solid var(--border)', padding: '4px 8px', borderRadius: 6,
+            fontSize: 12, fontWeight: 600, outline: 'none', cursor: 'pointer'
+          }}
+        >
+          <option value="America/New_York">EST</option>
+          <option value="America/Los_Angeles">PST</option>
+        </select>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }} suppressHydrationWarning>{time}</span>
       </div>
 
       {/* ── ASSISTANT INPUT BAR ── */}
-      <div style={{ padding: '24px 24px 0 24px' }}>
+      <div style={{ padding: '24px 24px 0 24px', zIndex: 5, position: 'relative' }}>
          <AssistantInput />
       </div>
 
@@ -266,21 +295,21 @@ export default function Dashboard() {
         ] as { id: typeof tab; label: string; badge: number }[]).map(({ id, label, badge }) => {
           const active = tab === id;
           return (
-            <button key={id} onClick={() => setTab(id)} style={{
+            <button key={id} onClick={() => setTab(id)} className={active ? "glass" : ""} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-              borderRadius: 8, border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 700, transition: 'all 0.3s ease',
-              background: active ? 'rgba(96, 76, 195, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(12px)',
-              color: active ? '#fff' : '#CBD5E1',
-              boxShadow: active ? '0 0 20px rgba(96, 76, 195, 0.2)' : '0 4px 6px rgba(0, 0, 0, 0.1)',
+              borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
+              background: active ? 'var(--bg-card)' : 'transparent',
+              color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+              boxShadow: active ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+              borderColor: active ? 'var(--border)' : 'transparent',
             }}>
               <span>{label}</span>
               {badge > 0 && (
                 <span style={{
-                  padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
-                  background: active ? '#604CC3' : '#142E4A',
-                  color: '#fff',
+                  padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700,
+                  background: active ? 'var(--text-primary)' : 'var(--border-soft)',
+                  color: active ? 'var(--bg-base)' : 'var(--text-secondary)',
                 }}>{badge}</span>
               )}
             </button>
@@ -299,15 +328,15 @@ export default function Dashboard() {
               {loading ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
                   {[...Array(12)].map((_, i) => (
-                    <div key={i} style={{ height: 220, borderRadius: 24, background: 'rgba(255, 255, 255, 0.04)', backdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.1)' }} />
+                    <div key={i} className="glass" style={{ height: 220, borderRadius: 12 }} />
                   ))}
                 </div>
               ) : filtered.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 16, textAlign: 'center' }}>
-                  <p style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>
+                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 16 }}>
                     No Extracted Edge
                   </p>
-                  <p style={{ color: '#94A3B8', fontSize: 14 }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
                     Orevix AI has not found any setups matching rigorous quantitative parameters.
                   </p>
                 </div>
@@ -331,21 +360,18 @@ export default function Dashboard() {
                     const isCheap = s.verdict === 'IV_CHEAP';
                     return (
                       <div key={s.id}
+                        className="glass"
                         style={{
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-                          border: `1px solid rgba(255, 255, 255, 0.1)`,
-                          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                          borderRadius: 24, padding: 24, position: 'relative', overflow: 'hidden',
+                          borderRadius: 12, padding: 24, position: 'relative', overflow: 'hidden',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
                           <div>
-                            <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>{s.ticker}</div>
-                            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{s.earningsSeason} · ~{s.dteApprox}DTE</div>
+                            <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>{s.ticker}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{s.earningsSeason} · ~{s.dteApprox}DTE</div>
                           </div>
                           <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 8, background: '#2081F9', color: '#fff' }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 8, background: 'var(--accent)', color: '#fff' }}>
                               {isRich ? 'SELL VOLATILITY' : isCheap ? 'BUY VOLATILITY' : 'NO EDGE'}
                             </div>
                           </div>
@@ -361,15 +387,13 @@ export default function Dashboard() {
           {tab === 'testing' && (
             <motion.div key="testing" style={{ height: '100%', overflowY: 'auto', padding: '0 24px 24px' }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-              <div style={{
-                padding: '28px', borderRadius: 24, marginBottom: 24,
-                background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              <div className="glass" style={{
+                padding: '24px', borderRadius: 12, marginBottom: 24,
                 display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'space-between'
               }}>
                 <div>
-                  <p style={{ fontWeight: 800, color: '#fff', marginBottom: 6, fontSize: 18 }}>Quantitative Historical Engine</p>
-                  <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6 }}>
+                  <p style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6, fontSize: 18 }}>Quantitative Historical Engine</p>
+                  <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                     Backtest the current Orevix algorithmic parameters against trailing aggregate flow data.
                   </p>
                 </div>
@@ -378,42 +402,40 @@ export default function Dashboard() {
                   disabled={runningBacktest}
                   style={{
                     padding: '14px 28px', borderRadius: 8, 
-                    background: 'rgba(96, 76, 195, 0.25)',
+                    background: 'var(--accent)',
                     border: '1px solid rgba(255, 255, 255, 0.15)',
-                    backdropFilter: 'blur(12px)',
                     color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '0.04em', cursor: runningBacktest ? 'not-allowed' : 'pointer',
                     fontFamily: 'inherit', transition: 'all 0.3s ease', opacity: runningBacktest ? 0.6 : 1,
-                    boxShadow: '0 8px 32px rgba(96, 76, 195, 0.2)',
+                    boxShadow: '0 8px 24px rgba(0, 122, 255, 0.4)',
                   }}
-                  onMouseOver={e => { if (!runningBacktest) { e.currentTarget.style.background = 'rgba(96, 76, 195, 0.35)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-                  onMouseOut={e => { if (!runningBacktest) { e.currentTarget.style.background = 'rgba(96, 76, 195, 0.25)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
+                  onMouseOver={e => { if (!runningBacktest) { e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                  onMouseOut={e => { if (!runningBacktest) { e.currentTarget.style.transform = 'translateY(0)'; } }}
                 >
                   {runningBacktest ? 'RUNNING...' : 'EXECUTE SIMULATION'}
                 </button>
               </div>
 
-               <div style={{
-                  background: 'rgba(255, 255, 255, 0.04)', borderRadius: 24, border: '1px solid rgba(255, 255, 255, 0.1)', 
-                  backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', overflow: 'hidden'
+               <div className="glass" style={{
+                  borderRadius: 12, overflow: 'hidden'
                 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
                     <thead>
-                      <tr style={{ background: '#09264A', color: '#94A3B8', textTransform: 'uppercase', fontSize: 11 }}>
-                        <th style={{ padding: '14px 20px' }}>Date</th>
-                        <th style={{ padding: '14px 20px' }}>Setup</th>
-                        <th style={{ padding: '14px 20px' }}>Entry Time</th>
-                        <th style={{ padding: '14px 20px' }}>Entry</th>
-                        <th style={{ padding: '14px 20px', textAlign: 'right' }}>Simulated PNL</th>
+                      <tr style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: 11 }}>
+                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Date</th>
+                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Setup</th>
+                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Entry Time</th>
+                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>Entry</th>
+                        <th style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', textAlign: 'right' }}>Simulated PNL</th>
                       </tr>
                     </thead>
                     <tbody>
                       {backtests.map((b) => (
-                        <tr key={b.id} style={{ borderTop: '1px solid #142E4A', color: '#E2E8F0' }}>
+                        <tr key={b.id} style={{ borderTop: '1px solid var(--border-soft)', color: 'var(--text-primary)' }}>
                           <td style={{ padding: '14px 20px', fontWeight: 600 }}>{b.entryDate}</td>
                           <td style={{ padding: '14px 20px', fontWeight: 800 }}>{b.ticker} {b.signal === 'BUY' ? '↑' : '↓'}</td>
-                          <td style={{ padding: '14px 20px', color: '#94A3B8' }}>{new Date(b.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</td>
+                          <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>{new Date(b.entryTime).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit' })}</td>
                           <td style={{ padding: '14px 20px' }}>${b.entryPremium.toFixed(2)}</td>
-                          <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 800, color: b.maxGainPct > 0 ? '#2081F9' : '#fff' }}>
+                          <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 800, color: b.maxGainPct > 0 ? 'var(--buy)' : 'var(--text-primary)' }}>
                             {b.maxGainPct.toFixed(1)}%
                           </td>
                         </tr>
