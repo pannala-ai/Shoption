@@ -51,25 +51,32 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. Market Data Retrieval (with robust mocking fallback)
-    let quote: any = { regularMarketPrice: 150.50, regularMarketChangePercent: 2.3, regularMarketVolume: 45000000 };
-    let news: any[] = [{ title: `Institutional flow indicates massive positional delta hedging underway for ${extractedTicker}.` }];
+    // 2. Market Data Retrieval (Strictly LIVE DATA)
+    let quote: any = null;
+    let news: any[] = [];
     
     try {
-      const liveQuote: any = await yahooFinance.quote(extractedTicker);
-      if (liveQuote && liveQuote.regularMarketPrice) {
-        quote = liveQuote;
-        const searchRes: any = await yahooFinance.search(extractedTicker, { newsCount: 3 });
-        if (searchRes.news && searchRes.news.length > 0) news = searchRes.news;
+      // Direct fetch bypasses Yahoo's cookie/crumb blocking
+      const quoteRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${extractedTicker}`);
+      const quoteData = await quoteRes.json();
+      const meta = quoteData?.chart?.result?.[0]?.meta;
+      if (meta && meta.regularMarketPrice) {
+        quote = {
+          regularMarketPrice: meta.regularMarketPrice,
+          regularMarketChangePercent: ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100,
+          regularMarketVolume: meta.regularMarketVolume || 0
+        };
+        
+        try {
+          const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${extractedTicker}`);
+          const searchData = await searchRes.json();
+          if (searchData.news && searchData.news.length > 0) news = searchData.news;
+        } catch(e) {}
+      } else {
+        throw new Error('Not found');
       }
     } catch (e) {
-      // Yahoo finance blocked the request/threw. Rely on our realistic mock data to ensure demo never crashes!
-      // Add a bit of determinism for the mock price based on sum of char codes
-      let charSum = 0;
-      for (let i = 0; i < extractedTicker.length; i++) charSum += extractedTicker.charCodeAt(i);
-      quote.regularMarketPrice = 50 + (charSum % 400); 
-      quote.regularMarketChangePercent = -3 + (charSum % 10);
-      quote.regularMarketVolume = 5000000 + (charSum * 100000);
+      return NextResponse.json({ type: 'text', text: "Stoption AI cannot pull live data for this ticker right now or company doesn't exist." });
     }
 
     // 3. Dynamic Narrative Generation 
