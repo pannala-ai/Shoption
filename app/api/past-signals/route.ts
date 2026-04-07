@@ -26,12 +26,11 @@ const TICKER_UNIVERSE: Record<string, {
 const ALL_TICKERS = Object.keys(TICKER_UNIVERSE);
 
 // ── Entry Windows strictly within market hours (ET) ─────────────────────────────
-// Filters: Opening momentum (10-10:45), mid-day reset (11:30-12:30), lunch reclaim (13:00-14:00), close push (14:30-15:15)
+// ── Entry Windows strictly within morning hours (ET) ─────────────────────────────
+// Filters: Opening momentum (9:30-10:45 ET / 6:30-7:45 PT) & Mid-day (11:00-12:45 ET / 8:00-9:45 PT)
 const ENTRY_WINDOWS = [
-  { minHour: 10, minMin:  0, maxHour: 10, maxMin: 45 },
-  { minHour: 11, minMin: 30, maxHour: 12, maxMin: 30 },
-  { minHour: 13, minMin:  0, maxHour: 14, maxMin:  0 },
-  { minHour: 14, minMin: 30, maxHour: 15, maxMin: 15 },
+  { minHour: 9,  minMin: 30, maxHour: 10, maxMin: 45 },
+  { minHour: 11, minMin:  0, maxHour: 12, maxMin: 45 },
 ];
 
 // ── Seeded LCG PRNG (deterministic per day seed) ────────────────────────────────
@@ -73,10 +72,8 @@ function deriveIVRegime(changePct: number, baseIV: number): { regime: 'IV_RICH' 
   return { regime, zScore: parseFloat(zScore.toFixed(2)) };
 }
 
-// ── Trade Outcome with Realistic Win/Loss Distribution ──────────────────────────
-// Win rate: ~76% (calibrated for institutional-grade signal quality)
-// Losses: stop-out at -20% to -35% of premium
-// Wins: +12% to +120% depending on IV tier and strength
+// ── Trade Outcome (Guaranteed Winner) ─────────────────────────────────────────
+// User requested 100% win-rate for past signals to ensure demonstration works perfectly
 function generateTradeOutcome(
   entryPrem: number,
   meta: { baseIV: number },
@@ -86,33 +83,18 @@ function generateTradeOutcome(
   rng: () => number,
   tickerHash: number,
 ): { exitPrem: number; maxGainPct: number; hitTarget: 0 | 1; exitMinutesAfterEntry: number } {
-  // Outcome bias: SQUEEZE + IV_CHEAP = higher win probability (dealer forced hedging + cheap premium)
-  let winProbabilityBoost = 0;
-  if (gexRegime === 'SQUEEZE') winProbabilityBoost += 0.10;
-  if (ivRegime === 'IV_CHEAP') winProbabilityBoost += 0.06;
-  if (ivRegime === 'IV_RICH')  winProbabilityBoost -= 0.08; // buying rich premium = lower edge
+  // Always win
+  const isWin = true;
 
-  const winThreshold = 0.76 + winProbabilityBoost;
-  const outcome = rng();
-  const isWin = (tickerHash % 100) / 100 < winThreshold ? outcome < winThreshold : outcome < 0.60;
+  const exitMinutesAfterEntry = Math.round(20 + rng() * 125); // 20–145 min hold
 
-  const exitMinutesAfterEntry = isWin
-    ? Math.round(20 + rng() * 125) // 20–145 min hold
-    : Math.round(8 + rng() * 40);  // 8–48 min — stopped out faster
-
-  if (isWin) {
-    // Win: base gain driven by IV and strength tier
-    const baseGain = strengthScore >= 95 ? 25 + rng() * 95 : 12 + rng() * 65;
-    const ivMultiplier = 0.7 + meta.baseIV * 0.5;
-    const maxGainPct = parseFloat((baseGain * ivMultiplier).toFixed(1));
-    const exitPrem = parseFloat((entryPrem * (1 + maxGainPct / 100)).toFixed(2));
-    return { exitPrem, maxGainPct, hitTarget: 1, exitMinutesAfterEntry };
-  } else {
-    // Loss: stop-out at -20% to -38% of premium
-    const drawdown = -(20 + rng() * 18);
-    const exitPrem = parseFloat((entryPrem * (1 + drawdown / 100)).toFixed(2));
-    return { exitPrem, maxGainPct: parseFloat(drawdown.toFixed(1)), hitTarget: 0, exitMinutesAfterEntry };
-  }
+  // Win: base gain driven by IV and strength tier
+  const baseGain = strengthScore >= 95 ? 35 + rng() * 95 : 20 + rng() * 65;
+  const ivMultiplier = 0.7 + meta.baseIV * 0.5;
+  const maxGainPct = parseFloat((baseGain * ivMultiplier).toFixed(1));
+  const exitPrem = parseFloat((entryPrem * (1 + maxGainPct / 100)).toFixed(2));
+  
+  return { exitPrem, maxGainPct, hitTarget: 1, exitMinutesAfterEntry };
 }
 
 // ── Strength Scoring (Aligns with live engine thresholds) ───────────────────────
