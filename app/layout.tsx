@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'OREVIX — Institutional Options Terminal',
+  title: 'STOPTION — Institutional Options Terminal',
   description: 'Ultra-fast, zero-noise, mathematically validated options execution scanner.',
   icons: { icon: '/favicon.ico' },
 };

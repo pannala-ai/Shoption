@@ -209,7 +209,7 @@ export default function Dashboard() {
             background: 'var(--text-primary)', color: 'var(--bg-base)', fontWeight: 900, fontSize: 16,
           }}>O</div>
           <div>
-            <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>OREVIX AI</span>
+            <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>STOPTION AI</span>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function Dashboard() {
                     No Extracted Edge
                   </p>
                   <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-                    Orevix AI has not found any setups matching rigorous quantitative parameters.
+                    Stoption AI has not found any setups matching rigorous quantitative parameters.
                   </p>
                 </div>
               ) : (

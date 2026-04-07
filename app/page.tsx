@@ -66,7 +66,7 @@ export default function LandingPage() {
       </main>
 
       <div style={{ position: 'absolute', bottom: 40, left: 0, width: '100%', display: 'flex', justifyContent: 'center', fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-        Orevix Quantitative Systems © {new Date().getFullYear()}
+        Stoption Quantitative Systems © {new Date().getFullYear()}
       </div>
     </div>
   );

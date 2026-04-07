@@ -198,7 +198,7 @@ export default function AssistantInput() {
             onKeyDown={(e) => { if (e.key === 'Enter') sendQuery(query); }}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 200)}
-            placeholder="Ask Orevix AI for deep quantitative edge..."
+            placeholder="Ask Stoption AI for deep quantitative edge..."
             style={{
               flex: 1,
               background: 'transparent',
