@@ -413,9 +413,9 @@ export function evaluateQuantitativeSetup(
   // Expected move = spot * IV_annualized * sqrt(DTE/365)
   // We use DTE=1 for 0DTE/1DTE intraday options as a baseline.
   // The target strike must fall INSIDE the 1-sigma band (68% probability zone).
-  const ivBaseline = (context as any)?.ivBaseline ?? 0.45; // passed from scan route or fallback
+  const ivBaseline = typeof (context as any)?.ivBaseline === 'number' && (context as any).ivBaseline > 0 ? (context as any).ivBaseline : 0.45;
   const dteFraction = 1 / 365; // 1DTE intraday baseline
-  const expectedMove1Sigma = price * ivBaseline * Math.sqrt(dteFraction);
+  const expectedMove1Sigma = price * ivBaseline * Math.sqrt(Math.max(0, dteFraction));
   const strikeOffset = signal === 'BUY' ? price + expectedMove1Sigma * 0.7 : price - expectedMove1Sigma * 0.7;
   // Round to nearest standard increment
   let strikePrice = price > 100

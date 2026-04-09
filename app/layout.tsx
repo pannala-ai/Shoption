@@ -18,8 +18,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
-      <body className="overflow-hidden h-screen w-screen antialiased"
-        style={{ background: '#000000', color: '#f1f5f9', fontFamily: '"JetBrains Mono", monospace' }}>
+      <body className="antialiased"
+        style={{ 
+          background: 'var(--bg-base)', 
+          color: 'var(--text-primary)', 
+          fontFamily: '"Inter", sans-serif',
+          margin: 0,
+          padding: 0,
+          overflow: 'hidden',
+          height: '100vh',
+          width: '100vw'
+        }}>
         {children}
       </body>
     </html>

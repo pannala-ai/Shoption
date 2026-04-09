@@ -57,18 +57,24 @@ export async function POST(req: Request) {
     
     try {
       // Direct fetch bypasses Yahoo's cookie/crumb blocking
-      const quoteRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${extractedTicker}`);
+      const reqOpts: RequestInit = { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        cache: 'no-store'
+      };
+      const quoteRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${extractedTicker}`, reqOpts);
       const quoteData = await quoteRes.json();
       const meta = quoteData?.chart?.result?.[0]?.meta;
       if (meta && meta.regularMarketPrice) {
         quote = {
           regularMarketPrice: meta.regularMarketPrice,
-          regularMarketChangePercent: ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100,
+          regularMarketChangePercent: meta.chartPreviousClose 
+            ? ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100
+            : 0,
           regularMarketVolume: meta.regularMarketVolume || 0
         };
         
         try {
-          const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${extractedTicker}`);
+          const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${extractedTicker}`, reqOpts);
           const searchData = await searchRes.json();
           if (searchData.news && searchData.news.length > 0) news = searchData.news;
         } catch(e) {}

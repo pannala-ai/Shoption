@@ -32,11 +32,11 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
   const entryMs = t.entryTime || t.timestamp;
   const exitMs = t.exitTime || (t.timestamp + 3600000); // fallback to 1hr later
 
-  const entryDate = new Date(entryMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
-  const entryTimeStr = new Date(entryMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
+  const entryDate = entryMs ? new Date(entryMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' }) : 'N/A';
+  const entryTimeStr = entryMs ? new Date(entryMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }) : '';
   
-  const exitDate = new Date(exitMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' });
-  const exitTimeStr = new Date(exitMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' });
+  const exitDate = exitMs ? new Date(exitMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' }) : 'N/A';
+  const exitTimeStr = exitMs ? new Date(exitMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' }) : '';
 
   return (
     <motion.div
@@ -150,7 +150,7 @@ export default function Dashboard() {
       setLastScan(new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }));
     } catch (e) { console.error('[scan]', e); }
     finally { setScanning(false); setLoading(false); }
-  }, [tz, mkt.label]);
+  }, []); // Stable fetchScan
 
 
 
@@ -183,7 +183,11 @@ export default function Dashboard() {
     fetchEarnings();
   }, [fetchPastSignals, fetchEarnings]);
 
-  useEffect(() => { fetchScan(); const id = setInterval(fetchScan, 180000); return () => clearInterval(id); }, [fetchScan]);
+  useEffect(() => { 
+    fetchScan(); 
+    const id = setInterval(fetchScan, 180000); 
+    return () => clearInterval(id); 
+  }, [fetchScan]);
 
   const filtered = results.filter(r => {
     if (r.signal === 'NONE') return false;
