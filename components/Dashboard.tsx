@@ -30,13 +30,13 @@ function PastCard({ t, onPin, currentPrice, tz }: { t: PastTrade; onPin: (t: Pin
   const color = 'var(--accent)';
   
   const entryMs = t.entryTime || t.timestamp;
-  const exitMs = t.exitTime || (t.timestamp + 3600000); // fallback to 1hr later
+  const exitMs = t.exitTime || (entryMs ? entryMs + 3600000 : null); 
 
   const entryDate = entryMs ? new Date(entryMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' }) : 'N/A';
   const entryTimeStr = entryMs ? new Date(entryMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }) : '';
   
   const exitDate = exitMs ? new Date(exitMs).toLocaleString('en-US', { timeZone: tz, month: 'short', day: '2-digit' }) : 'N/A';
-  const exitTimeStr = exitMs ? new Date(exitMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' }) : '';
+  const exitTimeStr = exitMs ? new Date(exitMs).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short' }) : 'Pending';
 
   return (
     <motion.div
@@ -198,6 +198,7 @@ export default function Dashboard() {
             signalStrength: s.strength,
             price: s.entryPrice,
             change: 0, // baseline
+            assetType: 'OPTION',
             detectedAt: new Date(s.entryTime).toISOString()
           })));
         }

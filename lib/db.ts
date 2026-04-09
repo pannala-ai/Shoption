@@ -41,21 +41,6 @@ class MockDB {
 const globalForDb = globalThis as unknown as { __db: MockDB };
 const db = globalForDb.__db || new MockDB();
 
-// ── SEEDING: Ensure at least one "Super Good" real signal exists for Today ──
-const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-const dateStr = et.toISOString().split('T')[0];
-const existing = db.prepare('SELECT * FROM signals WHERE entryDate = ?').all(dateStr);
-
-if (existing.length === 0) {
-  // Seed a high-conviction SPY setup for April 8, 2026
-  db.prepare('INSERT INTO signals (id, ticker, signal, entryTime, entryDate, entryPrice, peakPrice, peakPremium, entryPremium, maxGainPct, hitTarget, strength, reason, strikeLabel, strategyName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(
-      `SPY-BUY-${dateStr}-SEED`, 'SPY', 'BUY', Date.now() - 14400000, dateStr, 520.45, 522.10, 
-      8.50, 6.20, 37.1, 1, 98, 'High-probability institutional gamma trigger: SPY reclaimed the 520 level with aggressive dark pool sweep confirmation and bullish GEX amplification.', 
-      '$522 CALL', 'Gamma Squeeze Breakout'
-    );
-}
-
 if (process.env.NODE_ENV !== 'production') {
   globalForDb.__db = db;
 }
