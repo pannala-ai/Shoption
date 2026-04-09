@@ -6,6 +6,7 @@ interface SignalCardProps {
   r: ScanResult;
   isNew: boolean;
   onPin: (t: PinnedTrade) => void;
+  tz: string;
 }
 
 // Helper to format values
@@ -14,7 +15,7 @@ const fmt = {
   pct: (n: number) => (n > 0 ? '+' : '') + n.toFixed(2) + '%'
 };
 
-export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
+export default function SignalCard({ r, isNew, onPin, tz }: SignalCardProps) {
   const isActionable = r.signal === 'BUY' || r.signal === 'SELL';
   if (!isActionable) return null;
 
@@ -67,7 +68,14 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
             </span>
             {r.detectedAt && (
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                DETECTED {new Date(r.detectedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                {(() => {
+                  const d = new Date(r.detectedAt);
+                  const nyTime = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                  const hr = nyTime.getHours();
+                  const isPost = hr >= 16 || hr < 9;
+                  const label = isPost ? 'POST-MARKET' : 'DETECTED';
+                  return `${label} ${d.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true })}`;
+                })()}
               </span>
             )}
           </div>

@@ -322,7 +322,7 @@ export default function Dashboard() {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
                   <AnimatePresence>
-                    {filtered.map(r => <SignalCard key={r.ticker + r.signal} r={r} isNew={newTickers.has(r.ticker)} onPin={() => {}} />)}
+                    {filtered.map(r => <SignalCard key={r.ticker + r.signal} r={r} isNew={newTickers.has(r.ticker)} onPin={() => {}} tz={tz} />)}
                   </AnimatePresence>
                 </div>
               )}

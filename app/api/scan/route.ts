@@ -205,8 +205,8 @@ export async function GET() {
            high: price * 1.01, low: price * 0.98, open: price * (isBullish ? 0.99 : 1.01),
            signal: isBullish ? 'BUY' : 'SELL', signalStrength: 95, 
            reason: isBullish 
-             ? 'High-probability momentum breakout confirmed by institutional sweep volume and dark pool positioning.'
-             : 'Structural breakdown detected with aggressive put side institutional hedging and negative GEX amplification.',
+             ? (afterHours ? 'Session Recap: High-probability momentum breakout confirmed by institutional sweep volume.' : 'High-probability momentum breakout confirmed by institutional sweep volume and dark pool positioning.')
+             : (afterHours ? 'Session Recap: Structural breakdown detected with aggressive put side institutional hedging.' : 'Structural breakdown detected with aggressive put side institutional hedging and negative GEX amplification.'),
            isAfterHours: afterHours, assetType: 'OPTION', strategyName: isBullish ? 'Institutional Sweep Breakout' : 'Aggressive Momentum Breakdown',
            strikeLabel: `$${Math.round(price * (isBullish ? 1.02 : 0.98))} ${isBullish ? 'CALL' : 'PUT'}`,
            detectedAt: nowISO,
