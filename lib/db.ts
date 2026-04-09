@@ -12,26 +12,27 @@ class MockDB {
   }
   
   prepare(sql: string) {
+    const isToday = sql.includes('entryDate = ?');
     return {
       run: (...args: any[]) => {
-        this.data.push({
-          id: args[0],
-          ticker: args[1],
-          signal: args[2],
-          entryTime: args[3],
-          entryDate: args[4],
-          entryPrice: args[5],
-          peakPrice: args[6],
-          peakPremium: args[7],
-          entryPremium: args[8],
-          maxGainPct: args[9],
-          hitTarget: args[10],
-          strength: args[11],
-          reason: args[12]
-        });
+        // Simple deduplication per ticker/signal/hour to prevent flooding
+        const id = args[0];
+        if (!this.data.find(r => r.id === id)) {
+          this.data.push({
+            id: args[0], ticker: args[1], signal: args[2], entryTime: args[3],
+            entryDate: args[4], entryPrice: args[5], peakPrice: args[6],
+            peakPremium: args[7], entryPremium: args[8], maxGainPct: args[9],
+            hitTarget: args[10], strength: args[11], reason: args[12],
+            strikeLabel: args[13], strategyName: args[14]
+          });
+        }
       },
-      all: () => {
-        return [...this.data].sort((a, b) => b.entryTime - a.entryTime);
+      all: (...args: any[]) => {
+        let results = [...this.data];
+        if (isToday && args[0]) {
+          results = results.filter(r => r.entryDate === args[0]);
+        }
+        return results.sort((a, b) => b.entryTime - a.entryTime);
       }
     };
   }

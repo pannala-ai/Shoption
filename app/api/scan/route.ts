@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { getSnapshots, getGainersLosers } from '@/lib/polygon';
 import { evaluateQuantitativeSetup, SignalType, AssetType } from '@/lib/engine';
+import db from '@/lib/db';
 
 const WATCHLIST = [
   'NVDA','AAPL','TSLA','AMD','AMZN','MSFT','META','GOOGL','SPY','QQQ',
@@ -244,6 +245,23 @@ export async function GET() {
         r.signal = 'NONE'; // Suppress non-actionable or non-option setups
       }
       return r;
+    });
+
+    // PERSISTENCE: Save all active signals to the DB
+    results.forEach(r => {
+      if ((r.signal === 'BUY' || r.signal === 'SELL') && r.assetType === 'OPTION') {
+        const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const dateStr = et.toISOString().split('T')[0];
+        const hourKey = et.getHours();
+        const id = `${r.ticker}-${r.signal}-${dateStr}-${hourKey}`;
+        
+        db.prepare('INSERT INTO signals (id, ticker, signal, entryTime, entryDate, entryPrice, peakPrice, peakPremium, entryPremium, maxGainPct, hitTarget, strength, reason, strikeLabel, strategyName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(
+            id, r.ticker, r.signal, Date.now(), dateStr, r.price, r.high, 
+            r.proMetrics?.takeProfit || 0, r.price * 1.05, 0, 0, r.signalStrength, r.reason, 
+            r.strikeLabel, r.strategyName
+          );
+      }
     });
 
     results.sort((a, b) => {

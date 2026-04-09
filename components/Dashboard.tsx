@@ -183,8 +183,27 @@ export default function Dashboard() {
 
 
   useEffect(() => { 
-    fetchPastSignals();
-    fetchEarnings();
+    const init = async () => {
+      await fetchPastSignals();
+      await fetchEarnings();
+      // Optionally pre-populate results if tab is scanner
+      const r = await fetch('/api/past-signals');
+      if (r.ok) {
+        const d = await r.json();
+        const todayStr = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).toISOString().split('T')[0];
+        const todaySignals = (d.signals || []).filter((s: any) => s.entryDate === todayStr);
+        if (todaySignals.length > 0) {
+          setResults(todaySignals.map((s: any) => ({
+            ...s,
+            signalStrength: s.strength,
+            price: s.entryPrice,
+            change: 0, // baseline
+            detectedAt: new Date(s.entryTime).toISOString()
+          })));
+        }
+      }
+    };
+    init();
   }, [fetchPastSignals, fetchEarnings]);
 
   useEffect(() => { 
