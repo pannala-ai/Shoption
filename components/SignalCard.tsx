@@ -65,6 +65,11 @@ export default function SignalCard({ r, isNew, onPin }: SignalCardProps) {
             }}>
               OPTION
             </span>
+            {r.detectedAt && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                DETECTED {new Date(r.detectedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <span style={{ fontSize: 18, fontWeight: 600 }}>{fmt.usd(r.price)}</span>
