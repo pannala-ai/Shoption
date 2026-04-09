@@ -68,14 +68,12 @@ export default function SignalCard({ r, isNew, onPin, tz }: SignalCardProps) {
             </span>
             {r.detectedAt && (
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                {(() => {
-                  const d = new Date(r.detectedAt);
-                  const nyTime = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                  const hr = nyTime.getHours();
-                  const isPost = hr >= 16 || hr < 9;
-                  const label = isPost ? 'POST-MARKET' : 'DETECTED';
-                  return `${label} ${d.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true })}`;
-                })()}
+                DETECTED {new Date(r.detectedAt).toLocaleTimeString('en-US', { 
+                  timeZone: tz, 
+                  hour: '2-digit', 
+                  minute: '2-digit', 
+                  hour12: true 
+                })}
               </span>
             )}
           </div>

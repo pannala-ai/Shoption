@@ -131,8 +131,12 @@ export default function Dashboard() {
                    newResults.unshift(item);
                    stateUpdated = true;
                } else {
+                   // Preserve the ORIGINAL detection time to prevent "drifting" timestamps
+                   item.detectedAt = exists.detectedAt;
+                   
                    exists.price = item.price;
                    exists.change = item.change;
+                   exists.detectedAt = item.detectedAt; // Still sync the object reference
                    stateUpdated = true;
                }
            }

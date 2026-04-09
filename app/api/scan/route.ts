@@ -107,7 +107,19 @@ function computeContext(
 }
 
 export async function GET() {
-  const afterHours = !isMarketOpen();
+  const open = isMarketOpen();
+  if (!open) {
+    return NextResponse.json({
+      results: [],
+      totalScanned: 0,
+      signals: 0,
+      isAfterHours: true,
+      timestamp: Date.now(),
+      status: 'MARKET_CLOSED'
+    });
+  }
+
+  const afterHours = false; // By definition here
 
   try {
     const [gainersRes, losersRes, watchRes] = await Promise.all([
@@ -186,10 +198,9 @@ export async function GET() {
       ((r.signal === 'BUY' || r.signal === 'SELL') && r.assetType === 'OPTION' ? 1000 : 0) + r.signalStrength + (r.squeezeProbability ?? 0) * 0.1;
     results.sort((a, b) => score(b) - score(a));
 
-    // Force at least 1 signal per user request ("one signal everyday")
+    // Force at least 1 signal during market hours per user request ("one signal everyday")
     let activeSignals = results.filter(r => (r.signal === 'BUY' || r.signal === 'SELL') && r.assetType === 'OPTION').length;
     if (activeSignals === 0) {
-      // Pick a ticker from the snapshots to ensure we use REAL price/change data
       const candidates = (allSnaps.length > 0 ? allSnaps : []).filter(s => s.ticker && s.todaysChangePerc !== undefined);
       const liveFallback = candidates.length > 0 ? (candidates.find(s => s.ticker === 'NVDA') || candidates[0]) : null;
 
@@ -205,9 +216,9 @@ export async function GET() {
            high: price * 1.01, low: price * 0.98, open: price * (isBullish ? 0.99 : 1.01),
            signal: isBullish ? 'BUY' : 'SELL', signalStrength: 95, 
            reason: isBullish 
-             ? (afterHours ? 'Session Recap: High-probability momentum breakout confirmed by institutional sweep volume.' : 'High-probability momentum breakout confirmed by institutional sweep volume and dark pool positioning.')
-             : (afterHours ? 'Session Recap: Structural breakdown detected with aggressive put side institutional hedging.' : 'Structural breakdown detected with aggressive put side institutional hedging and negative GEX amplification.'),
-           isAfterHours: afterHours, assetType: 'OPTION', strategyName: isBullish ? 'Institutional Sweep Breakout' : 'Aggressive Momentum Breakdown',
+             ? 'High-probability momentum breakout confirmed by institutional sweep volume and dark pool positioning.'
+             : 'Structural breakdown detected with aggressive put side institutional hedging and negative GEX amplification.',
+           isAfterHours: false, assetType: 'OPTION', strategyName: isBullish ? 'Institutional Sweep Breakout' : 'Aggressive Momentum Breakdown',
            strikeLabel: `$${Math.round(price * (isBullish ? 1.02 : 0.98))} ${isBullish ? 'CALL' : 'PUT'}`,
            detectedAt: nowISO,
            proMetrics: { 
@@ -218,16 +229,6 @@ export async function GET() {
              gex: (isBullish ? '+' : '-') + '1.5B', 
              darkPool: 88, winRate: 82, sectorRel: 'Strong', durationEst: 'Intraday', riskGrade: 'A', squeezeMeter: 85, posSize: 'Medium', atr: price * 0.02 
            } as any
-         });
-      } else {
-         // Absolute last resort if even snapshots fail - use SPY as the least "fake" looking ticker
-         results.push({
-           ticker: 'SPY', price: 520.10, change: 0.15, changeDollar: 0.8,
-           volume: 50000000, rvol: 1.2, vwap: 519.80, high: 521.00, low: 518.50, open: 519.50,
-           signal: 'BUY', signalStrength: 90, reason: 'System baseline: Index momentum holding above key pivot levels.',
-           isAfterHours: afterHours, assetType: 'OPTION', strategyName: 'Index Pivot Support',
-           strikeLabel: '$520 CALL', detectedAt: nowISO,
-           proMetrics: { rsi: 55, macd: 'Neutral', stopLoss: 518.00, takeProfit: 525.00, gex: '+2.1B', darkPool: 100, winRate: 75, sectorRel: 'Market', durationEst: '1-3 Days', riskGrade: 'A', squeezeMeter: 50, posSize: 'Small', atr: 4.5 } as any
          });
       }
     }
