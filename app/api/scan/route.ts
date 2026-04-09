@@ -110,13 +110,26 @@ function computeContext(
 export async function GET() {
   const open = isMarketOpen();
   if (!open) {
+    // If market is closed, return the signals that were detected during the most recent active session
+    const et = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const dateStr = et.toISOString().split('T')[0];
+    const todaySignals = db.prepare('SELECT * FROM signals WHERE entryDate = ?').all(dateStr);
+    
+    // Convert DB records back to ScanResult format
+    const results = todaySignals.map((s: any) => ({
+      ticker: s.ticker, price: s.entryPrice, signal: s.signal, 
+      signalStrength: s.strength, reason: s.reason, detectedAt: new Date(s.entryTime).toISOString(),
+      strikeLabel: s.strikeLabel, strategyName: s.strategyName, assetType: 'OPTION',
+      change: 0, volume: 0, rvol: 1.0, isAfterHours: true
+    }));
+
     return NextResponse.json({
-      results: [],
-      totalScanned: 0,
-      signals: 0,
+      results,
+      totalScanned: results.length,
+      signals: results.length,
       isAfterHours: true,
       timestamp: Date.now(),
-      status: 'MARKET_CLOSED'
+      status: results.length > 0 ? 'SESSION_RECORD' : 'MARKET_CLOSED'
     });
   }
 
